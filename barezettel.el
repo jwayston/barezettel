@@ -1,0 +1,194 @@
+;;; barezettel.el --- Minimalistic Zettelkasten minor mode for Denote -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2022-2026  Free Software Foundation, Inc.
+
+;; Author: J Wayston
+;; Maintainer: J Wayston
+;; URL: https://github.com/jwayston/barezettel
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "31.1") (denote "4.2.3") (hyperbole "9.2.0"))
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+;;; Commentary:
+
+;; This package provides `barezettel-mode`, which enhances Denote files with
+;; hanging indents, custom fontification, and Hyperbole buttons for bare Denote
+;; IDs. The core idea is to allow keep using Denote without visual clutter
+;; that Org links and =denote:= prefixes may cause.
+;;
+;; The package relies on Denote and Hyperbole
+
+;;; Code:
+
+(require 'hyperbole)
+(require 'org)
+(require 'denote)
+
+(defgroup barezettel nil
+  "Minimalistic Zettelkasten minor mode for Denote."
+  :prefix "barezettel--"
+  :group 'data)
+
+(defcustom barezettel-use-brackets-around-signature t
+  "Non-nil means `barezettel-mode' will add brackets around signature when
+handling links."
+  :type 'boolean
+  :group 'barezettel)
+
+;;;; Hanging indent for bare Denote id's
+(defun barezettel--jit-apply-denote-indent (beg end)
+  "Find Denote IDs between BEG and END and lock them with wrap prefix.
+If there is anything after the id that ends with two spaces (signature), start
+hanging indent after the spaces instead of at the end of the id."
+  (save-excursion
+    (save-match-data
+      (goto-char beg)
+      (forward-line 0)
+      (while (and (< (point) end) (not (eobp)))
+        (if (looking-at "^\\s-*\\([0-9]\\{8\\}T[0-9]\\{6\\}:?\\s-*\\)\\([^[:space:]]+\\s-\\{2\\}\\)?")
+            (let* ((mbeg (match-beginning 0))
+                   (mend (match-end 0))
+                   (prefix (make-string (- mend mbeg) ?\s)))
+              (put-text-property (match-beginning 1) (line-end-position) 'wrap-prefix prefix))
+          ;; If no ID is detected, remove possible old prefix
+          (remove-text-properties (line-beginning-position) (line-end-position) '(wrap-prefix nil)))
+        (forward-line 1))))
+  (list beg end))
+
+(defun barezettel--denote-indent-toggle (enable)
+  "Toggle bare Denote ID hanging indent behavior based on ENABLE"
+  (interactive)
+  (if enable
+      (progn
+        (visual-line-mode 1)   ; We need visual line mode to make indenting work
+        (jit-lock-register #'barezettel--jit-apply-denote-indent nil))
+    (jit-lock-unregister #'barezettel--jit-apply-denote-indent)
+    (with-silent-modifications		; Do not mess undo history
+      (remove-text-properties (point-min) (point-max) '(wrap-prefix nil))))
+  (jit-lock-refontify))
+
+;;;; Interactive helper functions to deal with Org links
+(defun barezettel--format-signature (signature)
+  "Format signature per `barezettel-use-brackets-around-signature'."
+  (if signature
+      (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
+	(format "%s  " signature))
+    ""))
+
+(defun barezettel-denote-org-link-dismantle ()
+  "Dismantle Org Denote link to: DENOTEID Signature  Description
+The signature part is optional and will be skipped if not found."
+  (interactive)
+  (if (org-in-regexp "\\[\\[denote:\\([^]]+\\)\\]\\[\\(?:\\([^ ]+\\)[ ]\\{2\\}\\)?\\([^]]+\\)\\]\\]")
+      (let ((signature (match-string 2)))
+        (replace-match (format "%s %s%s"
+                               (match-string 1)
+                               (barezettel--format-signature signature)
+                               (match-string 3)) t t))
+    (user-error "Cursor must be over an Org Denote link")))
+
+(defun barezettel-denote-append-title-at-point ()
+  "Append title after the bare Denote ID."
+  (interactive)
+  (let* ((id (thing-at-point 'word t))
+         (path (denote-get-path-by-id id))
+	 (file-type (denote-filetype-heuristics path))
+         (title (denote-retrieve-title-or-filename path file-type))
+	 (signature (denote-retrieve-filename-signature path)))
+    (unless title (user-error "Couldn't retrieve title"))
+    (save-excursion
+      (goto-char (cdr (bounds-of-thing-at-point 'word)))
+      (insert " " (if (and (y-or-n-p "Add signature? ") signature)
+		      (barezettel--format-signature signature)
+		    "")
+	      title))))
+
+;;;; Denote core functionality modifications
+;;;;; Allow bare Denote IDs to be registered as backlinks
+(defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
+  "Include raw occurrences of Denote IDs in Denote backlinks.
+ORIG-FN is the original backlink retrieval function."
+  (let* ((original (funcall orig-fn identifier))
+	 (raw (denote-retrieve-xref-alist identifier))
+	 (seen (mapcar #'car original)))
+    (append original (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
+
+;;;; Font lock rules for bare Denote IDs
+(defun barezettel--denote-timestamp-help-echo (_window _object position)
+  "Return Denote filename for the Denote ID at POSITION."
+  (save-excursion
+    (goto-char position)
+    (skip-chars-backward "0-9T")
+    (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
+      (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
+
+(defface barezettel--denote-timestamp-face
+  '((t (:inherit shadow)))
+  "Face for bare Denote IDs")
+
+(defvar barezettel--font-lock-keywords
+  '(("[0-9]\\{8\\}T[0-9]\\{6\\}"
+     (0 (list 'face 'barezettel--denote-timestamp-face
+              'help-echo #'barezettel--denote-timestamp-help-echo)
+        t)))
+  "Keywords for barezettel-mode font-lock")
+
+(defun barezettel--setup-font-lock (enable)
+  "Enable or disable barezettel-mode font-lock rules based on ENABLE."
+  (if enable
+      (progn
+        (add-to-list 'font-lock-extra-managed-props 'help-echo)
+        (font-lock-add-keywords nil barezettel--font-lock-keywords 'append))
+    (font-lock-remove-keywords nil barezettel--font-lock-keywords))
+  (font-lock-flush))
+
+;;;; Hyperbole implicit button for bare Denote IDs
+(defun barezettel--setup-hyperbole (enable)
+  "Enable or disable Hyperbole implicit button for bare Denote IDs based on ENABLE."
+  (if enable
+      (defib denote-bareid ()
+        "Denote bare ID as implicit button to open the target note"
+        (let ((case-fold-search nil))
+          (save-excursion
+            (skip-chars-backward "0-9T")
+            (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
+              (let ((id (match-string-no-properties 0)))
+                (ibut:label-set id (match-beginning 0) (match-end 0))
+                (hact (lambda (target-id)
+                        (if-let* ((path (denote-get-path-by-id target-id)))
+                            (find-file path)
+                          (message "No such Denote note: %s" target-id)))
+                      id))))))
+    (ibtype:delete 'denote-bareid)))
+
+
+;;;###autoload
+(define-minor-mode barezettel-mode
+  "Toggles barezettel-mode."
+  :init-value nil
+  :lighter " BZ"
+  (barezettel--setup-hyperbole barezettel-mode)
+  (barezettel--setup-font-lock barezettel-mode)
+  (barezettel--denote-indent-toggle barezettel-mode)
+  (if barezettel-mode
+      (progn
+	(advice-add 'denote-retrieve-xref-alist-for-backlinks
+		    :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
+    (progn
+      (advice-remove 'denote-retrieve-xref-alist-for-backlinks
+                     #'barezettel--denote-retrieve-xref-alist-for-backlinks))))
+
+(provide 'barezettel)
