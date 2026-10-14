@@ -156,22 +156,33 @@ ORIG-FN is the original backlink retrieval function."
   (font-lock-flush))
 
 ;;;; Hyperbole implicit button for bare Denote IDs
+(defun barezettel--hyperbole-show-id-targets (id)
+  (let ((current-file (denote-get-path-by-id id)))
+    (if (not current-file)
+        (message "No such Denote note: %s" id)
+      (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
+             (all-files (delete-dups (cons current-file backlinks)))
+             (choices (mapcar (lambda (f)
+                                (cons (file-relative-name f (denote-directory)) f))
+                              all-files))
+             (default-choice (car (car choices)))
+             (selected (completing-read "ID found in notes: " choices nil t nil nil default-choice)))
+        (when-let ((path (cdr (assoc selected choices))))
+          (find-file path))))))
+
 (defun barezettel--setup-hyperbole (enable)
   "Enable or disable Hyperbole implicit button for bare Denote IDs based on ENABLE."
   (if enable
       (defib denote-bareid ()
-        "Denote bare ID as implicit button to open the target note"
-        (let ((case-fold-search nil))
-          (save-excursion
-            (skip-chars-backward "0-9T")
-            (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
+	"Denote bare ID as implicit button. It either opens the target note or
+shows lists all notes containing the ID (link as search functionality)"
+	(let ((case-fold-search nil))
+	  (save-excursion
+	    (skip-chars-backward "0-9T")
+	    (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
               (let ((id (match-string-no-properties 0)))
-                (ibut:label-set id (match-beginning 0) (match-end 0))
-                (hact (lambda (target-id)
-                        (if-let* ((path (denote-get-path-by-id target-id)))
-                            (find-file path)
-                          (message "No such Denote note: %s" target-id)))
-                      id))))))
+		(ibut:label-set id (match-beginning 0) (match-end 0))
+		(hact 'barezettel--hyperbole-show-id-targets id))))))
     (ibtype:delete 'denote-bareid)))
 
 
