@@ -163,11 +163,11 @@ ORIG-FN is the original backlink retrieval function."
       (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
              (all-files (delete-dups (cons current-file backlinks)))
              (choices (mapcar (lambda (f)
-                                (cons (file-relative-name f (denote-directory)) f))
+                                (cons (file-relative-name f (car (denote-directories))) f))
                               all-files))
              (default-choice (car (car choices)))
              (selected (completing-read "ID found in notes: " choices nil t nil nil default-choice)))
-        (when-let ((path (cdr (assoc selected choices))))
+        (when-let* ((path (cdr (assoc selected choices))))
           (find-file path))))))
 
 (defun barezettel--setup-hyperbole (enable)
