@@ -81,10 +81,10 @@ hanging indent after the spaces instead of at the end of the id."
       (remove-text-properties (point-min) (point-max) '(wrap-prefix nil))))
   (jit-lock-refontify))
 
-;;;; Interactive helper functions to deal with Org links
-(defun barezettel--format-signature (signature)
+;;;; Interactive functions
+(defun barezettel--insert-signature (signature)
   "Format signature per `barezettel-use-brackets-around-signature'."
-  (if signature
+  (if (and signature (y-or-n-p "Include signature?"))
       (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
 	(format "%s  " signature))
     ""))
@@ -112,9 +112,7 @@ The signature part is optional and will be skipped if not found."
     (unless title (user-error "Couldn't retrieve title"))
     (save-excursion
       (goto-char (cdr (bounds-of-thing-at-point 'word)))
-      (insert " " (if (and (y-or-n-p "Add signature? ") signature)
-		      (barezettel--format-signature signature) "")
-	      title))))
+      (insert " " (barezettel--insert-signature signature) title))))
 
 (defun barezettel-denote-link ()
   "Barezettel replacement for denote-link."
