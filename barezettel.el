@@ -91,7 +91,7 @@ hanging indent after the spaces instead of at the end of the id."
   (jit-lock-refontify))
 
 ;;;; Interactive functions
-(defun barezettel--insert-signature (signature)
+(defun barezettel--format-signature (signature)
   "Format signature per `barezettel-use-brackets-around-signature'."
   (if (and signature (y-or-n-p "Include signature?"))
       (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
@@ -144,7 +144,7 @@ The signature part is optional and will be skipped if not found."
     (unless title (user-error "Couldn't retrieve title"))
     (save-excursion
       (goto-char (cdr (bounds-of-thing-at-point 'word)))
-      (insert " " (barezettel--insert-signature signature) title))))
+      (insert " " (barezettel--format-signature signature) title))))
 
 (defun barezettel-denote-link ()
   "Barezettel replacement for denote-link."
@@ -154,7 +154,7 @@ The signature part is optional and will be skipped if not found."
       (call-interactively 'denote-link))
     (if (org-in-regexp "\\[\\[denote:\\(.*?\\)\\].*\\]")
 	(let ((id (match-string 1)))
-	  (replace-match (format "%s" (match-string 1))))
+	  (replace-match (format "%s" id)))
       (user-error "Link format error."))
     (call-interactively 'barezettel-denote-append-title-at-point)))
 
