@@ -48,6 +48,11 @@ handling links."
   :type 'boolean
   :group 'barezettel)
 
+(defcustom barezettel-denote-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}"
+  "Regexp for Denote ID"
+  :type 'string
+  :group 'barezettel)
+
 
 ;;;; Hanging indent for bare Denote id's
 (defun barezettel--jit-apply-denote-indent (beg end)
@@ -142,7 +147,7 @@ ORIG-FN is the original backlink retrieval function."
   (save-excursion
     (goto-char position)
     (skip-chars-backward "0-9T")
-    (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
+    (when (looking-at barezettel-denote-regexp)
       (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
 
 (defface barezettel--denote-timestamp-face
@@ -150,7 +155,7 @@ ORIG-FN is the original backlink retrieval function."
   "Face for bare Denote IDs")
 
 (defvar barezettel--font-lock-keywords
-  '(("[0-9]\\{8\\}T[0-9]\\{6\\}"
+  `((,barezettel-denote-regexp
      (0 (list 'face 'barezettel--denote-timestamp-face
               'help-echo #'barezettel--denote-timestamp-help-echo)
         t)))
