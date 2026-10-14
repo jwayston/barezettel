@@ -6,17 +6,18 @@ Barezettel registers an implicit hyperbole button for the default Denote ID. Jus
 
 To make visual experience even more endurable, lines starting with IDs are treated as if the IDs were bullets; hanging indents are shown accordingly. Caveat: the hanging indent feature does not work when org-indent-mode is active.
 
-*This package is under early stages of development. Expect breaking and sudden changes in directions it will take. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.*
+*This package is under early stages of development. Expect breaking and sudden changes in directions it will take. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.* 
 
 
 Installation:
 
 #+begin_src elisp
-(use-package barezettel
-  :load-path "path/you/downloaded/this"
-  :ensure nil
-  :hook (text-mode . barezettel-mode)
-  :bind (("C-c n x" . #'barezettel-denote-append-title-at-point))
-  :custom
-  (barezettel-use-brackets-around-signature t))
+  (use-package barezettel
+    :load-path "path/you/downloaded/this"
+    :ensure nil
+    :hook (text-mode . barezettel-mode)
+    :bind (("C-c n x" . #'barezettel-denote-append-title-at-point)
+           ("C-c n l" . #'barezettel-denote-link))
+    :custom
+    (barezettel-use-brackets-around-signature t))
 #+end_src

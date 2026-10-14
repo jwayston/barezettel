@@ -48,6 +48,7 @@ handling links."
   :type 'boolean
   :group 'barezettel)
 
+
 ;;;; Hanging indent for bare Denote id's
 (defun barezettel--jit-apply-denote-indent (beg end)
   "Find Denote IDs between BEG and END and lock them with wrap prefix.
@@ -112,9 +113,20 @@ The signature part is optional and will be skipped if not found."
     (save-excursion
       (goto-char (cdr (bounds-of-thing-at-point 'word)))
       (insert " " (if (and (y-or-n-p "Add signature? ") signature)
-		      (barezettel--format-signature signature)
-		    "")
+		      (barezettel--format-signature signature) "")
 	      title))))
+
+(defun barezettel-denote-link ()
+  "Barezettel replacement for denote-link."
+  (interactive)
+  (save-excursion
+    (let ((current-prefix-arg '(4)))
+      (call-interactively 'denote-link))
+    (if (org-in-regexp "\\[\\[denote:\\(.*?\\)\\].*\\]")
+	(let ((id (match-string 1)))
+	  (replace-match (format "%s" (match-string 1))))
+      (user-error "Link format error."))
+    (call-interactively 'barezettel-denote-append-title-at-point)))
 
 ;;;; Denote core functionality modifications
 ;;;;; Allow bare Denote IDs to be registered as backlinks
