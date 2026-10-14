@@ -53,6 +53,10 @@ handling links."
   :type 'string
   :group 'barezettel)
 
+(defface barezettel--denote-id-face
+  '((t (:inherit shadow)))
+  "Face for bare Denote IDs"
+  :group 'barezettel)
 
 ;;;; Hanging indent for bare Denote id's
 (defun barezettel--jit-apply-denote-indent (beg end)
@@ -93,6 +97,29 @@ hanging indent after the spaces instead of at the end of the id."
       (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
 	(format "%s  " signature))
     ""))
+
+(defun barezettel-forward-id ()
+  (interactive)
+  (let ((pos (point))
+        (found nil)
+        (target-face 'barezettel--denote-id-face))
+    (while (and (not found) (setq pos (next-single-property-change pos 'face)))
+      (let ((prop (get-text-property pos 'face)))
+        (when (or (eq prop target-face) (and (listp prop) (memq target-face prop)))
+          (setq found pos))))
+    (if found (goto-char found) (message "No more IDs found"))))
+
+(defun barezettel-backward-id ()
+  (interactive)
+  (let ((pos (point))
+        (found nil)
+        (target-face 'barezettel--denote-id-face))
+    (while (and (not found) (setq pos (previous-single-property-change pos 'face)))
+      (let ((prop (get-text-property (1- pos) 'face)))
+        (when (or (eq prop target-face) (and (listp prop) (memq target-face prop)))
+          (setq found (previous-single-property-change pos 'face nil (point-min))))))
+    (if found (goto-char found) (message "No more IDs found"))))
+
 
 (defun barezettel-denote-org-link-dismantle ()
   "Dismantle Org Denote link to: DENOTEID Signature  Description
@@ -150,13 +177,9 @@ ORIG-FN is the original backlink retrieval function."
     (when (looking-at barezettel-denote-regexp)
       (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
 
-(defface barezettel--denote-timestamp-face
-  '((t (:inherit shadow)))
-  "Face for bare Denote IDs")
-
 (defvar barezettel--font-lock-keywords
   `((,barezettel-denote-regexp
-     (0 (list 'face 'barezettel--denote-timestamp-face
+     (0 (list 'face 'barezettel--denote-id-face
               'help-echo #'barezettel--denote-timestamp-help-echo)
         t)))
   "Keywords for barezettel-mode font-lock")
