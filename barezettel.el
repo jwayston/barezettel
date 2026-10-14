@@ -172,6 +172,7 @@ ORIG-FN is the original backlink retrieval function."
 
 ;;;; Hyperbole implicit button for bare Denote IDs
 (defun barezettel--hyperbole-show-id-targets (id)
+  "Generate completing list for all the notes containing ID."
   (let ((current-file (denote-get-path-by-id id)))
     (if (not current-file)
         (message "No such Denote note: %s" id)
