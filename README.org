@@ -2,9 +2,9 @@
 
 *The core idea of this package is to allow to use Denote without visual clutter that Org links and =denote:= prefixes cause when there is no rendering wanted or available. I.e. use bare Denote IDs in your notes and they act as links. This makes dealing with bare text note files more visually pleasant when used outside Emacs.*
 
-Barezettel registers an implicit hyperbole button for the default Denote ID. Just use =M-RET= on the ID and you will be provided with a completion list of all the notes containing the ID to pick from. This /"link as search"/ functionality might be familiar to you from [[https://zettelkasten.de/the-archive/][The Archive]] app.
+Barezettel makes detected Denote IDs interactive. Just use =M-RET= on the ID and you will be provided with a completion list of all the notes containing the ID to pick from. This /"link as search"/ functionality might be familiar to you from [[https://zettelkasten.de/the-archive/][The Archive]] app.
 
-To make visual experience even more endurable, lines starting with IDs are treated as if the IDs were bullets; hanging indents are shown accordingly. Caveat: the hanging indent feature does not work when org-indent-mode is active.
+To make visual experience even more endurable, lines starting with IDs are treated as if the they were bullets; hanging indents are constructed accordingly. Caveat: the hanging indent feature does not work when org-indent-mode is active.
 
 *This package is under early stages of development. Expect breaking and sudden changes in directions it will take. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.* 
 

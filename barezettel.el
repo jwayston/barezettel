@@ -5,8 +5,8 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.1.0
-;; Package-Requires: ((emacs "31.1") (denote "4.2.3") (hyperbole "9.2.0"))
+;; Version: 0.1.1
+;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 
 ;;; Code:
 
-(require 'hyperbole)
 (require 'org)
 (require 'denote)
 
@@ -53,10 +52,22 @@ handling links."
   :type 'string
   :group 'barezettel)
 
-(defface barezettel--denote-id-face
-  '((t (:inherit shadow)))
+(defface barezettel--denote-id-face '((t (:inherit shadow)))
   "Face for bare Denote IDs"
   :group 'barezettel)
+
+(defvar-keymap barezettel--denote-id-keymap
+  :doc "Keymap for barezettel ID buttons."
+  "M-RET" #'barezettel--denote-show-id-targets-at-point
+  "M-<return>" #'barezettel--denote-show-id-targets-at-point)
+
+(defvar barezettel--font-lock-keywords
+  `((,barezettel-denote-regexp
+     (0 `(face barezettel--denote-id-face
+	  keymap ,barezettel--denote-id-keymap
+	  help-echo barezettel--denote-id-help-echo)
+        t)))
+  "Keywords for barezettel-mode font-lock")
 
 ;;;; Hanging indent for bare Denote id's
 (defun barezettel--jit-apply-denote-indent (beg end)
@@ -158,7 +169,7 @@ The signature part is optional and will be skipped if not found."
       (user-error "Link format error."))
     (call-interactively 'barezettel-denote-append-title-at-point)))
 
-;;;; Denote core functionality modifications
+;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
 (defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
   "Include raw occurrences of Denote IDs in Denote backlinks.
@@ -168,8 +179,31 @@ ORIG-FN is the original backlink retrieval function."
 	 (seen (mapcar #'car original)))
     (append original (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
 
+(defun barezettel--denote-show-id-targets-at-point ()
+  "Generate completing list for all the notes containing ID."
+  (interactive)
+  (let ((id (save-excursion
+              (skip-chars-backward "0-9T")
+              (when (looking-at barezettel-denote-regexp)
+                (match-string-no-properties 0)))))
+    (if (not id)
+        (message "No ID recognized at point")
+      (let ((current-file (denote-get-path-by-id id)))
+        (if (not current-file)
+            (message "Couldn't find Denote file for ID: %s" id)
+          (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
+                 (all-files (delete-dups (cons current-file backlinks)))
+                 (choices (mapcar (lambda (f)
+                                    (cons (file-relative-name f (car (denote-directories))) f))
+                                  all-files))
+                 (default-choice (car (car choices)))
+                 (selected (completing-read "ID was found in notes: " choices nil t nil nil default-choice)))
+            (when-let* ((path (cdr (assoc selected choices))))
+              (find-file path))))))))
+
+
 ;;;; Font lock rules for bare Denote IDs
-(defun barezettel--denote-timestamp-help-echo (_window _object position)
+(defun barezettel--denote-id-help-echo (_window _object position)
   "Return Denote filename for the Denote ID at POSITION."
   (save-excursion
     (goto-char position)
@@ -177,52 +211,16 @@ ORIG-FN is the original backlink retrieval function."
     (when (looking-at barezettel-denote-regexp)
       (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
 
-(defvar barezettel--font-lock-keywords
-  `((,barezettel-denote-regexp
-     (0 (list 'face 'barezettel--denote-id-face
-              'help-echo #'barezettel--denote-timestamp-help-echo)
-        t)))
-  "Keywords for barezettel-mode font-lock")
-
 (defun barezettel--setup-font-lock (enable)
   "Enable or disable barezettel-mode font-lock rules based on ENABLE."
   (if enable
       (progn
         (add-to-list 'font-lock-extra-managed-props 'help-echo)
-        (font-lock-add-keywords nil barezettel--font-lock-keywords 'append))
+        (add-to-list 'font-lock-extra-managed-props 'keymap)
+
+        (font-lock-add-keywords nil barezettel--font-lock-keywords 'prepend))
     (font-lock-remove-keywords nil barezettel--font-lock-keywords))
   (font-lock-flush))
-
-;;;; Hyperbole implicit button for bare Denote IDs
-(defun barezettel--hyperbole-show-id-targets (id)
-  "Generate completing list for all the notes containing ID."
-  (let ((current-file (denote-get-path-by-id id)))
-    (if (not current-file)
-        (message "No such Denote note: %s" id)
-      (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
-             (all-files (delete-dups (cons current-file backlinks)))
-             (choices (mapcar (lambda (f)
-                                (cons (file-relative-name f (car (denote-directories))) f))
-                              all-files))
-             (default-choice (car (car choices)))
-             (selected (completing-read "ID found in notes: " choices nil t nil nil default-choice)))
-        (when-let* ((path (cdr (assoc selected choices))))
-          (find-file path))))))
-
-(defun barezettel--setup-hyperbole (enable)
-  "Enable or disable Hyperbole implicit button for bare Denote IDs based on ENABLE."
-  (if enable
-      (defib denote-bareid ()
-	"Denote bare ID as implicit button. It either opens the target note or
-shows lists all notes containing the ID (link as search functionality)"
-	(let ((case-fold-search nil))
-	  (save-excursion
-	    (skip-chars-backward "0-9T")
-	    (when (looking-at "[0-9]\\{8\\}T[0-9]\\{6\\}")
-              (let ((id (match-string-no-properties 0)))
-		(ibut:label-set id (match-beginning 0) (match-end 0))
-		(hact 'barezettel--hyperbole-show-id-targets id))))))
-    (ibtype:delete 'denote-bareid)))
 
 
 ;;;###autoload
@@ -230,7 +228,6 @@ shows lists all notes containing the ID (link as search functionality)"
   "Toggles barezettel-mode."
   :init-value nil
   :lighter " BZ"
-  (barezettel--setup-hyperbole barezettel-mode)
   (barezettel--setup-font-lock barezettel-mode)
   (barezettel--denote-indent-toggle barezettel-mode)
   (if barezettel-mode
