@@ -19,7 +19,9 @@ Installation:
     :bind (("C-c n x" . #'barezettel-denote-append-title-at-point)
            ("C-c n l" . #'barezettel-denote-link)
   	 ("C-c n >" . #'barezettel-forward-id)
-  	 ("C-c n <" . #'barezettel-backward-id))
+  	 ("C-c n <" . #'barezettel-backward-id)
+  	 :map barezettel-denote-id-keymap
+  	 ("M-<return>" . #'barezettel-denote-show-targets-at-point))
     :custom
     (barezettel-use-brackets-around-signature t))
 #+end_src

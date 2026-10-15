@@ -56,15 +56,16 @@ handling links."
   "Face for bare Denote IDs"
   :group 'barezettel)
 
-(defvar-keymap barezettel--denote-id-keymap
+(defvar-keymap barezettel-denote-id-keymap
   :doc "Keymap for barezettel ID buttons."
-  "M-RET" #'barezettel--denote-show-id-targets-at-point
-  "M-<return>" #'barezettel--denote-show-id-targets-at-point)
+  ;; "M-RET" #'barezettel-denote-show-targets-at-point
+  ;; "M-<return>" #'barezettel-denote-show-targets-at-point
+  )
 
 (defvar barezettel--font-lock-keywords
   `((,barezettel-denote-regexp
      (0 `(face barezettel--denote-id-face
-	  keymap ,barezettel--denote-id-keymap
+	  keymap ,barezettel-denote-id-keymap
 	  help-echo barezettel--denote-id-help-echo)
         t)))
   "Keywords for barezettel-mode font-lock")
@@ -183,9 +184,10 @@ ORIG-FN is the original backlink retrieval function."
 	 (seen (mapcar #'car original)))
     (append original (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
 
-(defun barezettel--denote-show-id-targets-at-point ()
-  "Generate completing list for all the notes containing ID."
-  (interactive)
+(defun barezettel-denote-show-targets-at-point (arg)
+  "Show completing list of all the notes containing ID. With universal
+argument, open in another window."
+  (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
               (when (looking-at barezettel-denote-regexp)
@@ -203,7 +205,9 @@ ORIG-FN is the original backlink retrieval function."
                  (default-choice (car (car choices)))
                  (selected (completing-read "ID was found in notes: " choices nil t nil nil default-choice)))
             (when-let* ((path (cdr (assoc selected choices))))
-              (find-file path))))))))
+              (if (equal arg '(4))
+		  (find-file-other-window path)
+		(find-file path)))))))))
 
 
 ;;;; Font lock rules for bare Denote IDs
