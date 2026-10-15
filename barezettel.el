@@ -24,12 +24,13 @@
 
 ;;; Commentary:
 
-;; This package provides `barezettel-mode`, which enhances Denote files with
-;; hanging indents, custom fontification, and Hyperbole buttons for bare Denote
-;; IDs. The core idea is to allow keep using Denote without visual clutter
-;; that Org links and =denote:= prefixes may cause.
+;; The core idea of this package is to allow to use Denote without visual
+;; clutter that Org links and =denote:= prefixes cause when there is no
+;; rendering wanted or available. I.e. use bare Denote IDs in your notes and
+;; they act as links. This makes dealing with bare text note files more visually
+;; pleasant especially when used also outside Emacs.
 ;;
-;; The package relies on Denote and Hyperbole
+;; The package relies on Denote.
 
 ;;; Code:
 
