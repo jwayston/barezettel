@@ -144,18 +144,22 @@ The signature part is optional and will be skipped if not found."
                                (match-string 3)) t t))
     (user-error "Cursor must be over an Org Denote link")))
 
-(defun barezettel-denote-append-title-at-point ()
-  "Append title after the bare Denote ID."
-  (interactive)
-  (let* ((id (thing-at-point 'word t))
+(defun barezettel-denote-append-title-at-point (arg)
+  "Append title after the bare Denote ID. With universal argument, prepend
+title before the ID."
+  (interactive "P")
+  (let* ((bounds (bounds-of-thing-at-point 'word))
+         (id (buffer-substring-no-properties (car bounds) (cdr bounds)))
          (path (denote-get-path-by-id id))
-	 (file-type (denote-filetype-heuristics path))
+         (file-type (denote-filetype-heuristics path))
          (title (denote-retrieve-title-or-filename path file-type))
-	 (signature (denote-retrieve-filename-signature path)))
+         (signature (denote-retrieve-filename-signature path)))
     (unless title (user-error "Couldn't retrieve title"))
     (save-excursion
-      (goto-char (cdr (bounds-of-thing-at-point 'word)))
-      (insert " " (barezettel--format-signature signature) title))))
+      (let ((prepend (equal arg '(4))))
+        (goto-char (if prepend (car bounds) (cdr bounds)))
+        (unless prepend (insert " "))
+        (insert (barezettel--format-signature signature) title (if prepend " " ""))))))
 
 (defun barezettel-denote-link ()
   "Barezettel replacement for denote-link."
