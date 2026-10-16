@@ -1,15 +1,18 @@
-* Minimalistic Zettelkasten minor mode for Denote
+* barezettel.el - Minimalistic Zettelkasten minor mode for Denote
 
-*The core idea of this package is to allow to use Denote without visual clutter that Org links and =denote:= prefixes cause when there is no rendering wanted or available. I.e. use bare Denote IDs in your notes and they act as links. This makes dealing with bare text note files more visually pleasant when used outside Emacs.*
+The core idea behind this package is to let you use Denote without the visual clutter caused by Org links and =denote:= prefixes when rendering is neither desired nor available. In other words, you can use bare Denote IDs in your notes and have them function as links. This makes plain-text note files much more pleasant to read outside Emacs.
 
-Barezettel makes detected Denote IDs interactive. Just use =M-RET= on the ID and you will be provided with a completion list of all the notes containing the ID to pick from. This /"link as search"/ functionality might be familiar to you from [[https://zettelkasten.de/the-archive/][The Archive]] app.
+Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and you will be provided with a completion list of all the notes containing the ID to pick from. This /"link as search"/ functionality might be familiar to you from [[https://zettelkasten.de/the-archive/][The Archive]] app.
 
-To make visual experience even more endurable, lines starting with IDs are treated as if the they were bullets; hanging indents are constructed accordingly. Caveat: the hanging indent feature does not work when org-indent-mode is active.
+=This package is under early stages of development. Expect breaking and sudden changes in directions it will go. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.=
 
-*This package is under early stages of development. Expect breaking and sudden changes in directions it will take. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.* 
+** Features
 
+- To make visual experience even more endurable, lines starting with IDs are treated as if the they were bullets; hanging indents are constructed accordingly. Caveat: the hanging indent feature does not work when org-indent-mode is active.
+- Jump between links
+- Insert links as TOC elements ("Link description ................. TARGETID")
 
-Installation:
+** Installation
 
 #+begin_src elisp
   (use-package barezettel
@@ -18,6 +21,7 @@ Installation:
     :hook (text-mode . barezettel-mode)
     :bind (("C-c n x" . #'barezettel-denote-append-title-at-point)
            ("C-c n l" . #'barezettel-denote-link)
+  	 ("C-c n t" . #'barezettel-denote-link-toc)
   	 ("C-c n >" . #'barezettel-forward-id)
   	 ("C-c n <" . #'barezettel-backward-id)
   	 :map barezettel-denote-id-keymap

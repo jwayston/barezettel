@@ -58,10 +58,7 @@ handling links."
   :group 'barezettel)
 
 (defvar-keymap barezettel-denote-id-keymap
-  :doc "Keymap for barezettel ID buttons."
-  ;; "M-RET" #'barezettel-denote-show-targets-at-point
-  ;; "M-<return>" #'barezettel-denote-show-targets-at-point
-  )
+  :doc "Keymap for barezettel ID buttons.")
 
 (defvar barezettel--font-lock-keywords
   `((,barezettel-denote-regexp
@@ -70,6 +67,78 @@ handling links."
 	  help-echo barezettel--denote-id-help-echo)
         t)))
   "Keywords for barezettel-mode font-lock")
+
+;;;; TOC
+(defun barezettel--line-to-toc-fill-dots (fill-count)
+  (end-of-line) (backward-word) (insert-char ?. fill-count) (insert " "))
+
+(defun barezettel--line-to-toc (threshold indent)
+  "Generate a nice TOC line with INDENT."
+  (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
+  (forward-line 0)
+  (insert-char ?\s indent)
+
+  (let* ((beg (line-beginning-position))
+	 (end (line-end-position))
+	 (llen (string-width (buffer-substring-no-properties beg end))))
+
+    (if (< llen threshold)  ;; Short line, just place the dots
+	(barezettel--line-to-toc-fill-dots (- threshold 1 llen))
+
+      ;; Longer lines
+      (let* ((lword (save-excursion (goto-char end) (current-word)))
+	     (lwlen (length lword))
+	     (end-marker (copy-marker (- end lwlen)))
+	     (fill-column (- threshold lwlen 1)))
+
+	(save-excursion
+	  ;; Remove the last word (the TOC target)
+	  (save-excursion (goto-char end) (delete-region (- (point) lwlen) (point)))
+
+	  ;; Wrap the line according to calculated 'fill-column'
+	  (fill-region beg end-marker)
+
+	  (forward-line 1)
+	  (let ((rbeg (line-beginning-position))
+		(fill-column (- threshold lwlen 3)))
+
+	    ;; Join the remaining lines
+	    (let ((fill-column 999999)) (fill-region rbeg end-marker))
+
+	    (let ((rbeg (line-beginning-position)))
+	      ;; Rewrap rest of the text with hanging indent
+	      (fill-region rbeg end-marker)
+	      (indent-rigidly rbeg end-marker 2)
+	      (goto-char end-marker) (insert " " lword))
+
+	    ;; Place the dots in the last line
+	    (let ((dotsn (- threshold 1 (- (line-end-position) (line-beginning-position)))))
+	      (barezettel--line-to-toc-fill-dots dotsn))))
+	(goto-char end-marker)))))
+
+(defun barezettel--lines-to-toc (threshold indent)
+  "Convert a paragraph containing multiple lines to a TOC."
+  (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
+  (let ((pbeg (save-excursion (backward-paragraph) (forward-line 1) (point)))
+	(pend (save-excursion (forward-paragraph) (point))))
+    (save-restriction
+      (narrow-to-region pbeg pend)
+      (goto-char (point-min))
+      (while (not (eobp))
+	(barezettel--line-to-toc threshold indent)
+	(forward-line 1)))))
+
+(defun barezettel-denote-link-toc (arg)
+  "Insert denote link as a TOC entry."
+  (interactive "P")
+  (atomic-change-group
+    (let ((defaults (equal arg '(4)))
+	  (current-prefix-arg '(4)))
+      (call-interactively 'barezettel-denote-link)
+      (if defaults
+	  (barezettel--line-to-toc 80 0)
+	(call-interactively 'barezettel--line-to-toc)))))
+
 
 ;;;; Hanging indent for bare Denote id's
 (defun barezettel--jit-apply-denote-indent (beg end)
@@ -102,6 +171,7 @@ hanging indent after the spaces instead of at the end of the id."
     (with-silent-modifications		; Do not mess undo history
       (remove-text-properties (point-min) (point-max) '(wrap-prefix nil))))
   (jit-lock-refontify))
+
 
 ;;;; Interactive functions
 (defun barezettel--format-signature (signature)
@@ -174,6 +244,7 @@ title before the ID."
 	  (replace-match (format "%s" id)))
       (user-error "Link format error."))
     (call-interactively 'barezettel-denote-append-title-at-point)))
+
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
