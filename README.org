@@ -4,7 +4,7 @@ The core idea behind this package is to let you use Denote without the visual cl
 
 Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and you will be provided with a completion list of all the notes containing the ID to pick from. This /"link as search"/ functionality might be familiar to you from [[https://zettelkasten.de/the-archive/][The Archive]] app.
 
-=This package is under early stages of development. Expect breaking and sudden changes in directions it will go. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.=
+*This package is under early stages of development. Expect breaking and sudden changes in directions it will go. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.*
 
 ** Features
 
