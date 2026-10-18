@@ -170,7 +170,7 @@ hanging indent after the spaces instead of at the end of the id."
         (visual-line-mode 1)   ; We need visual line mode to make indenting work
         (jit-lock-register #'barezettel--jit-apply-denote-indent nil))
     (jit-lock-unregister #'barezettel--jit-apply-denote-indent)
-    (with-silent-modifications		; Do not mess undo history
+    (with-silent-modifications	; Do not mess undo history
       (remove-text-properties (point-min) (point-max) '(wrap-prefix nil))))
   (jit-lock-refontify))
 
@@ -253,6 +253,29 @@ With universal argument ARG, prepend the title before the ID."
       (user-error "Link format error"))
     (call-interactively 'barezettel-denote-append-title-at-point)))
 
+(defun barezettel-denote-extract-region-and-link ()
+  "Extract the region to a new Denote note and replace the region with its ID."
+  (interactive)
+  (unless (use-region-p)
+    (user-error "No active region"))
+  (let* ((id nil)
+         (buf (current-buffer))
+         (beg (copy-marker (region-beginning)))
+         (end (copy-marker (region-end) t))
+         (advice (lambda (orig-fun &rest args)
+                   (let ((path (apply orig-fun args)))
+                     (setq id (denote-retrieve-filename-identifier path))
+                     path))))
+    (unwind-protect
+        (progn
+          (advice-add 'denote :around advice)
+          (call-interactively #'denote-region))
+      (advice-remove 'denote advice)
+      (when (and id (buffer-live-p buf))
+        (with-current-buffer buf
+          (delete-region beg end) (goto-char beg) (insert id)))
+      (set-marker beg nil)
+      (set-marker end nil))))
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
@@ -298,7 +321,10 @@ With universal argument ARG, open in another window."
     (goto-char position)
     (skip-chars-backward "0-9T")
     (when (looking-at barezettel-denote-regexp)
-      (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
+      (let ((filename (denote-get-path-by-id (match-string-no-properties 0))))
+        (if filename
+            (file-name-nondirectory filename)
+          "ID not detected in any Denote filename")))))
 
 (defun barezettel--setup-font-lock (enable)
   "Enable or disable `barezettel-mode' font-lock rules based on ENABLE."
