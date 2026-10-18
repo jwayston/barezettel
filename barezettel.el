@@ -26,9 +26,9 @@
 
 ;; The core idea of this package is to allow to use Denote without visual
 ;; clutter that Org links and =denote:= prefixes cause when there is no
-;; rendering wanted or available. I.e. use bare Denote IDs in your notes and
-;; they act as links. This makes dealing with bare text note files more visually
-;; pleasant especially when used also outside Emacs.
+;; rendering wanted or available.  I.e. use bare Denote IDs in your notes and
+;; they act as links.  This makes dealing with bare text note files more
+;; visually pleasant especially when used also outside Emacs.
 ;;
 ;; The package relies on Denote.
 
@@ -43,18 +43,17 @@
   :group 'data)
 
 (defcustom barezettel-use-brackets-around-signature t
-  "Non-nil means `barezettel-mode' will add brackets around signature when
-handling links."
+  "Non-nil means `barezettel-mode' will add brackets around signature when."
   :type 'boolean
   :group 'barezettel)
 
 (defcustom barezettel-denote-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}"
-  "Regexp for Denote ID"
+  "Regexp for Denote ID."
   :type 'string
   :group 'barezettel)
 
 (defface barezettel--denote-id-face '((t (:inherit shadow)))
-  "Face for bare Denote IDs"
+  "Face for bare Denote IDs."
   :group 'barezettel)
 
 (defvar-keymap barezettel-denote-id-keymap
@@ -63,81 +62,83 @@ handling links."
 (defvar barezettel--font-lock-keywords
   `((,barezettel-denote-regexp
      (0 `(face barezettel--denote-id-face
-	  keymap ,barezettel-denote-id-keymap
-	  help-echo barezettel--denote-id-help-echo)
+          keymap ,barezettel-denote-id-keymap
+          help-echo barezettel--denote-id-help-echo)
         t)))
-  "Keywords for barezettel-mode font-lock")
+  "Keywords for `barezettel-mode' font-lock.")
 
 ;;;; TOC
 (defun barezettel--line-to-toc-fill-dots (fill-count)
+  "Fill FILL-COUNT dots before the last word of the line."
   (end-of-line) (backward-word) (insert-char ?. fill-count) (insert " "))
 
 (defun barezettel--line-to-toc (threshold indent)
-  "Generate a nice TOC line with INDENT."
+  "Generate a nice TOC line with INDENT no longer than THRESHOLD."
   (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
   (forward-line 0)
   (insert-char ?\s indent)
 
   (let* ((beg (line-beginning-position))
-	 (end (line-end-position))
-	 (llen (string-width (buffer-substring-no-properties beg end))))
+         (end (line-end-position))
+         (llen (string-width (buffer-substring-no-properties beg end))))
 
     (if (< llen threshold)  ;; Short line, just place the dots
-	(barezettel--line-to-toc-fill-dots (- threshold 1 llen))
+        (barezettel--line-to-toc-fill-dots (- threshold 1 llen))
 
       ;; Longer lines
       (let* ((lword (save-excursion (goto-char end) (current-word)))
-	     (lwlen (length lword))
-	     (end-marker (copy-marker (- end lwlen)))
-	     (fill-column (- threshold lwlen 1)))
+             (lwlen (length lword))
+             (end-marker (copy-marker (- end lwlen)))
+             (fill-column (- threshold lwlen 1)))
 
-	(save-excursion
-	  ;; Remove the last word (the TOC target)
-	  (save-excursion (goto-char end) (delete-region (- (point) lwlen) (point)))
+        (save-excursion
+          ;; Remove the last word (the TOC target)
+          (save-excursion (goto-char end) (delete-region (- (point) lwlen) (point)))
 
-	  ;; Wrap the line according to calculated 'fill-column'
-	  (fill-region beg end-marker)
+          ;; Wrap the line according to calculated 'fill-column'
+          (fill-region beg end-marker)
 
-	  (forward-line 1)
-	  (let ((rbeg (line-beginning-position))
-		(fill-column (- threshold lwlen 3)))
+          (forward-line 1)
+          (let ((rbeg (line-beginning-position))
+                (fill-column (- threshold lwlen 3)))
 
-	    ;; Join the remaining lines
-	    (let ((fill-column 999999)) (fill-region rbeg end-marker))
+            ;; Join the remaining lines
+            (let ((fill-column 999999)) (fill-region rbeg end-marker))
 
-	    (let ((rbeg (line-beginning-position)))
-	      ;; Rewrap rest of the text with hanging indent
-	      (fill-region rbeg end-marker)
-	      (indent-rigidly rbeg end-marker 2)
-	      (goto-char end-marker) (insert " " lword))
+            (let ((rbeg (line-beginning-position)))
+              ;; Rewrap rest of the text with hanging indent
+              (fill-region rbeg end-marker)
+              (indent-rigidly rbeg end-marker 2)
+              (goto-char end-marker) (insert " " lword))
 
-	    ;; Place the dots in the last line
-	    (let ((dotsn (- threshold 1 (- (line-end-position) (line-beginning-position)))))
-	      (barezettel--line-to-toc-fill-dots dotsn))))
-	(goto-char end-marker)))))
+            ;; Place the dots in the last line
+            (let ((dotsn (- threshold 1 (- (line-end-position)
+                                           (line-beginning-position)))))
+              (barezettel--line-to-toc-fill-dots dotsn))))
+        (goto-char end-marker)))))
 
 (defun barezettel--lines-to-toc (threshold indent)
-  "Convert a paragraph containing multiple lines to a TOC."
+  "Multiline paragraph to lines of TOC-entries of INDENT no wider than THRESHOLD."
   (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
   (let ((pbeg (save-excursion (backward-paragraph) (forward-line 1) (point)))
-	(pend (save-excursion (forward-paragraph) (point))))
+        (pend (save-excursion (forward-paragraph) (point))))
     (save-restriction
       (narrow-to-region pbeg pend)
       (goto-char (point-min))
       (while (not (eobp))
-	(barezettel--line-to-toc threshold indent)
-	(forward-line 1)))))
+        (barezettel--line-to-toc threshold indent)
+        (forward-line 1)))))
 
 (defun barezettel-denote-link-toc (arg)
-  "Insert denote link as a TOC entry."
+  "Insert denote link as a TOC entry, ARG meaning unversal argument."
   (interactive "P")
   (atomic-change-group
     (let ((defaults (equal arg '(4)))
-	  (current-prefix-arg '(4)))
+          (current-prefix-arg '(4)))
       (call-interactively 'barezettel-denote-link)
       (if defaults
-	  (barezettel--line-to-toc 80 0)
-	(call-interactively 'barezettel--line-to-toc)))))
+          (barezettel--line-to-toc 80 0)
+        (call-interactively 'barezettel--line-to-toc)))))
 
 
 ;;;; Hanging indent for bare Denote id's
@@ -154,14 +155,15 @@ hanging indent after the spaces instead of at the end of the id."
             (let* ((mbeg (match-beginning 0))
                    (mend (match-end 0))
                    (prefix (make-string (- mend mbeg) ?\s)))
-              (put-text-property (match-beginning 1) (line-end-position) 'wrap-prefix prefix))
+              (put-text-property (match-beginning 1)
+                                 (line-end-position) 'wrap-prefix prefix))
           ;; If no ID is detected, remove possible old prefix
           (remove-text-properties (line-beginning-position) (line-end-position) '(wrap-prefix nil)))
         (forward-line 1))))
   (list beg end))
 
 (defun barezettel--denote-indent-toggle (enable)
-  "Toggle bare Denote ID hanging indent behavior based on ENABLE"
+  "Toggle bare Denote ID hanging indent behavior based on ENABLE."
   (interactive)
   (if enable
       (progn
@@ -175,37 +177,43 @@ hanging indent after the spaces instead of at the end of the id."
 
 ;;;; Interactive functions
 (defun barezettel--format-signature (signature)
-  "Format signature per `barezettel-use-brackets-around-signature'."
+  "Format SIGNATURE per `barezettel-use-brackets-around-signature'."
   (if (and signature (y-or-n-p "Include signature?"))
       (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
-	(format "%s  " signature))
+        (format "%s  " signature))
     ""))
 
 (defun barezettel-forward-id ()
+  "Jump to a next ID."
   (interactive)
   (let ((pos (point))
         (found nil)
         (target-face 'barezettel--denote-id-face))
     (while (and (not found) (setq pos (next-single-property-change pos 'face)))
       (let ((prop (get-text-property pos 'face)))
-        (when (or (eq prop target-face) (and (listp prop) (memq target-face prop)))
+        (when (or (eq prop target-face)
+                  (and (listp prop) (memq target-face prop)))
           (setq found pos))))
     (if found (goto-char found) (message "No more IDs found"))))
 
 (defun barezettel-backward-id ()
+  "Jump to a previous ID."
   (interactive)
   (let ((pos (point))
         (found nil)
         (target-face 'barezettel--denote-id-face))
-    (while (and (not found) (setq pos (previous-single-property-change pos 'face)))
+    (while (and (not found)
+                (setq pos (previous-single-property-change pos 'face)))
       (let ((prop (get-text-property (1- pos) 'face)))
-        (when (or (eq prop target-face) (and (listp prop) (memq target-face prop)))
-          (setq found (previous-single-property-change pos 'face nil (point-min))))))
+        (when (or (eq prop target-face)
+                  (and (listp prop) (memq target-face prop)))
+          (setq found
+                (previous-single-property-change pos 'face nil (point-min))))))
     (if found (goto-char found) (message "No more IDs found"))))
 
 
 (defun barezettel-denote-org-link-dismantle ()
-  "Dismantle Org Denote link to: DENOTEID Signature  Description
+  "Dismantle Org Denote link to: \"DENOTEID Signature  Description\".
 The signature part is optional and will be skipped if not found."
   (interactive)
   (if (org-in-regexp "\\[\\[denote:\\([^]]+\\)\\]\\[\\(?:\\([^ ]+\\)[ ]\\{2\\}\\)?\\([^]]+\\)\\]\\]")
@@ -217,8 +225,8 @@ The signature part is optional and will be skipped if not found."
     (user-error "Cursor must be over an Org Denote link")))
 
 (defun barezettel-denote-append-title-at-point (arg)
-  "Append title after the bare Denote ID. With universal argument, prepend
-title before the ID."
+  "Append a title after the bare Denote ID.
+With universal argument ARG, prepend the title before the ID."
   (interactive "P")
   (let* ((bounds (bounds-of-thing-at-point 'word))
          (id (buffer-substring-no-properties (car bounds) (cdr bounds)))
@@ -234,31 +242,32 @@ title before the ID."
         (insert (barezettel--format-signature signature) title (if prepend " " ""))))))
 
 (defun barezettel-denote-link ()
-  "Barezettel replacement for denote-link."
+  "Barezettel replacement for `denote-link'."
   (interactive)
   (save-excursion
     (let ((current-prefix-arg '(4)))
       (call-interactively 'denote-link))
     (if (org-in-regexp "\\[\\[denote:\\(.*?\\)\\].*\\]")
-	(let ((id (match-string 1)))
-	  (replace-match (format "%s" id)))
-      (user-error "Link format error."))
+        (let ((id (match-string 1)))
+          (replace-match (format "%s" id)))
+      (user-error "Link format error"))
     (call-interactively 'barezettel-denote-append-title-at-point)))
 
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
 (defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
-  "Include raw occurrences of Denote IDs in Denote backlinks.
+  "Include raw occurrences of Denote IDs (IDENTIFIER) in Denote backlinks.
 ORIG-FN is the original backlink retrieval function."
   (let* ((original (funcall orig-fn identifier))
-	 (raw (denote-retrieve-xref-alist identifier))
-	 (seen (mapcar #'car original)))
-    (append original (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
+         (raw (denote-retrieve-xref-alist identifier))
+         (seen (mapcar #'car original)))
+    (append original
+            (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
 
 (defun barezettel-denote-show-targets-at-point (arg)
-  "Show completing list of all the notes containing ID. With universal
-argument, open in another window."
+  "Show completing list of all the notes containing the ID at point.
+With universal argument ARG, open in another window."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
@@ -278,8 +287,8 @@ argument, open in another window."
                  (selected (completing-read "ID was found in notes: " choices nil t nil nil default-choice)))
             (when-let* ((path (cdr (assoc selected choices))))
               (if (equal arg '(4))
-		  (find-file-other-window path)
-		(find-file path)))))))))
+                  (find-file-other-window path)
+                (find-file path)))))))))
 
 
 ;;;; Font lock rules for bare Denote IDs
@@ -292,7 +301,7 @@ argument, open in another window."
       (file-name-nondirectory (denote-get-path-by-id (match-string-no-properties 0))))))
 
 (defun barezettel--setup-font-lock (enable)
-  "Enable or disable barezettel-mode font-lock rules based on ENABLE."
+  "Enable or disable `barezettel-mode' font-lock rules based on ENABLE."
   (if enable
       (progn
         (add-to-list 'font-lock-extra-managed-props 'help-echo)
@@ -305,15 +314,15 @@ argument, open in another window."
 
 ;;;###autoload
 (define-minor-mode barezettel-mode
-  "Toggles barezettel-mode."
+  "Toggles `barezettel-mode'."
   :init-value nil
   :lighter " BZ"
   (barezettel--setup-font-lock barezettel-mode)
   (barezettel--denote-indent-toggle barezettel-mode)
   (if barezettel-mode
       (progn
-	(advice-add 'denote-retrieve-xref-alist-for-backlinks
-		    :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
+        (advice-add 'denote-retrieve-xref-alist-for-backlinks
+                    :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
     (progn
       (advice-remove 'denote-retrieve-xref-alist-for-backlinks
                      #'barezettel--denote-retrieve-xref-alist-for-backlinks))))
