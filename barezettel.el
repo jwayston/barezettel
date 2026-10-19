@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.1.1
+;; Version: 0.1.2
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -42,8 +42,13 @@
   :prefix "barezettel--"
   :group 'data)
 
+(defcustom barezettel-visual-hanging-indents nil
+  "Non-nil means `barezettel-mode' will apply visual hanging indents."
+  :type 'boolean
+  :group 'barezettel)
+
 (defcustom barezettel-use-brackets-around-signature t
-  "Non-nil means `barezettel-mode' will add brackets around signature when."
+  "Non-nil means `barezettel-mode' will add brackets around signature."
   :type 'boolean
   :group 'barezettel)
 
@@ -66,6 +71,12 @@
           help-echo barezettel--denote-id-help-echo)
         t)))
   "Keywords for `barezettel-mode' font-lock.")
+
+(defvar-local barezettel--original-visual-line-mode nil
+  "Original `visual-line-mode' state.")
+
+(defvar-local barezettel--original-visual-wrap-prefix-mode nil
+  "Original `visual-wrap-prefix-mode' state.")
 
 ;;;; TOC
 (defun barezettel--line-to-toc-fill-dots (fill-count)
@@ -142,46 +153,39 @@
 
 
 ;;;; Hanging indent for bare Denote id's
-(defun barezettel--jit-apply-denote-indent (beg end)
-  "Find Denote IDs between BEG and END and lock them with wrap prefix.
-If there is anything after the id that ends with two spaces (signature), start
-hanging indent after the spaces instead of at the end of the id."
+;; (defun barezettel--jit-apply-denote-indent (beg end)
+;;   "Find Denote IDs between BEG and END and lock them with wrap prefix.
+(defun barezettel--fill-context-prefix-override (orig-fun from to &rest args)
+  "Calculates text until two spaces and forces it as a visual prefix.
+If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
   (save-excursion
-    (save-match-data
-      (goto-char beg)
-      (forward-line 0)
-      (while (and (< (point) end) (not (eobp)))
-        (if (looking-at "^\\s-*\\([0-9]\\{8\\}T[0-9]\\{6\\}:?\\s-*\\)\\([^[:space:]]+\\s-\\{2\\}\\)?")
-            (let* ((mbeg (match-beginning 0))
-                   (mend (match-end 0))
-                   (prefix (make-string (- mend mbeg) ?\s)))
-              (put-text-property (match-beginning 1)
-                                 (line-end-position) 'wrap-prefix prefix))
-          ;; If no ID is detected, remove possible old prefix
-          (remove-text-properties (line-beginning-position) (line-end-position) '(wrap-prefix nil)))
-        (forward-line 1))))
-  (list beg end))
+    (goto-char from)
+    (if (looking-at "^\\([^\n]+?  \\)")
+        (make-string (length (match-string 1)) ?\s)
+      (apply orig-fun from to args))))
 
-(defun barezettel--denote-indent-toggle (enable)
-  "Toggle bare Denote ID hanging indent behavior based on ENABLE."
-  (interactive)
+(defun barezettel--toggle-visual-hanging-indents (enable)
+  "Toggle visual hanging indents based on ENABLE.
+Respects `barezettel-visual-hanging-indents'."
   (if enable
-      (progn
-        (visual-line-mode 1)   ; We need visual line mode to make indenting work
-        (jit-lock-register #'barezettel--jit-apply-denote-indent nil))
-    (jit-lock-unregister #'barezettel--jit-apply-denote-indent)
-    (with-silent-modifications	; Do not mess undo history
-      (remove-text-properties (point-min) (point-max) '(wrap-prefix nil))))
-  (jit-lock-refontify))
-
+      (if barezettel-visual-hanging-indents
+          (progn
+            (advice-add 'fill-context-prefix :around #'barezettel--fill-context-prefix-override)
+            (visual-line-mode t)
+            (visual-wrap-prefix-mode t)))
+    (advice-remove 'fill-context-prefix #'barezettel--fill-context-prefix-override)
+    (visual-line-mode barezettel--original-visual-line-mode)
+    (visual-wrap-prefix-mode barezettel--original-visual-wrap-prefix-mode)))
 
 ;;;; Interactive functions
 (defun barezettel--format-signature (signature)
-  "Format SIGNATURE per `barezettel-use-brackets-around-signature'."
+  "Format SIGNATURE per `barezettel-use-brackets-around-signature'.
+If SIGNATURE was nil or user answered 'no', return nil."
   (if (and signature (y-or-n-p "Include signature?"))
-      (if barezettel-use-brackets-around-signature (format "(%s)  " signature)
-        (format "%s  " signature))
-    ""))
+      (if barezettel-use-brackets-around-signature
+          (format "(%s)" signature)
+        (format "%s" signature))
+    nil))
 
 (defun barezettel-forward-id ()
   "Jump to a next ID."
@@ -236,10 +240,14 @@ With universal argument ARG, prepend the title before the ID."
          (signature (denote-retrieve-filename-signature path)))
     (unless title (user-error "Couldn't retrieve title"))
     (save-excursion
-      (let ((prepend (equal arg '(4))))
+      (let ((prepend (equal arg '(4)))
+            (sign (barezettel--format-signature signature)))
         (goto-char (if prepend (car bounds) (cdr bounds)))
-        (unless prepend (insert " "))
-        (insert (barezettel--format-signature signature) title (if prepend " " ""))))))
+        (if prepend
+            (insert (if sign (string-join (list sign "  ")) "")
+                    title " ")
+          (insert (if sign (string-join (list " " sign "  ")) "  ")
+                  title))))))
 
 (defun barezettel-denote-link ()
   "Barezettel replacement for `denote-link'."
@@ -251,7 +259,7 @@ With universal argument ARG, prepend the title before the ID."
         (let ((id (match-string 1)))
           (replace-match (format "%s" id)))
       (user-error "Link format error"))
-    (call-interactively 'barezettel-denote-append-title-at-point)))
+    (call-interactively #'barezettel-denote-append-title-at-point)))
 
 (defun barezettel-denote-extract-region-and-link ()
   "Extract the region to a new Denote note and replace the region with its ID."
@@ -337,20 +345,23 @@ With universal argument ARG, open in another window."
     (font-lock-remove-keywords nil barezettel--font-lock-keywords))
   (font-lock-flush))
 
-
 ;;;###autoload
 (define-minor-mode barezettel-mode
   "Toggles `barezettel-mode'."
   :init-value nil
   :lighter " BZ"
+  ;; Save original states of various things
+  (setq barezettel--original-visual-line-mode visual-line-mode)
+  (setq barezettel--original-visual-wrap-prefix-mode (bound-and-true-p visual-wrap-prefix-mode))
+
+  ;; Ignite Barezettel
   (barezettel--setup-font-lock barezettel-mode)
-  (barezettel--denote-indent-toggle barezettel-mode)
+  (barezettel--toggle-visual-hanging-indents barezettel-mode)
   (if barezettel-mode
       (progn
         (advice-add 'denote-retrieve-xref-alist-for-backlinks
                     :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
-    (progn
-      (advice-remove 'denote-retrieve-xref-alist-for-backlinks
-                     #'barezettel--denote-retrieve-xref-alist-for-backlinks))))
+    (advice-remove 'denote-retrieve-xref-alist-for-backlinks
+                   #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
 
 (provide 'barezettel)
