@@ -190,30 +190,16 @@ If SIGNATURE was nil or user answered 'no', return nil."
 (defun barezettel-forward-id ()
   "Jump to a next ID."
   (interactive)
-  (let ((pos (point))
-        (found nil)
-        (target-face 'barezettel--denote-id-face))
-    (while (and (not found) (setq pos (next-single-property-change pos 'face)))
-      (let ((prop (get-text-property pos 'face)))
-        (when (or (eq prop target-face)
-                  (and (listp prop) (memq target-face prop)))
-          (setq found pos))))
-    (if found (goto-char found) (message "No more IDs found"))))
+  (forward-word)
+  (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t))
+  (when (not match) (message "No more IDs ahead")))
 
 (defun barezettel-backward-id ()
   "Jump to a previous ID."
   (interactive)
-  (let ((pos (point))
-        (found nil)
-        (target-face 'barezettel--denote-id-face))
-    (while (and (not found)
-                (setq pos (previous-single-property-change pos 'face)))
-      (let ((prop (get-text-property (1- pos) 'face)))
-        (when (or (eq prop target-face)
-                  (and (listp prop) (memq target-face prop)))
-          (setq found
-                (previous-single-property-change pos 'face nil (point-min))))))
-    (if found (goto-char found) (message "No more IDs found"))))
+  (backward-word)
+  (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t))
+  (when (not match) (message "No more IDs before")))
 
 
 (defun barezettel-denote-org-link-dismantle ()
