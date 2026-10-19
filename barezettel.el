@@ -190,16 +190,21 @@ If SIGNATURE was nil or user answered 'no', return nil."
 (defun barezettel-forward-id ()
   "Jump to a next ID."
   (interactive)
-  (forward-word)
-  (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t))
-  (when (not match) (message "No more IDs ahead")))
+  (save-excursion
+    (forward-word) (forward-char)
+    (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t)))
+  (if (not match) (message "No more IDs ahead")
+    (goto-char (prop-match-beginning match))))
 
 (defun barezettel-backward-id ()
   "Jump to a previous ID."
   (interactive)
-  (backward-word)
-  (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t))
-  (when (not match) (message "No more IDs before")))
+  (save-excursion
+    (unless (looking-at "^\\|$\\|\\s\\|\\b\\w")
+      (backward-word))
+    (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t)))
+  (if (not match) (message "No more IDs before")
+    (goto-char (prop-match-beginning match))))
 
 
 (defun barezettel-denote-org-link-dismantle ()
