@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.1.2
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -24,13 +24,14 @@
 
 ;;; Commentary:
 
-;; The core idea of this package is to allow to use Denote without visual
-;; clutter that Org links and =denote:= prefixes cause when there is no
-;; rendering wanted or available.  I.e. use bare Denote IDs in your notes and
-;; they act as links.  This makes dealing with bare text note files more
-;; visually pleasant especially when used also outside Emacs.
+;; The core idea of this package is to allow to use Denote without
+;; visual clutter that Org links and =denote:= prefixes cause when
+;; there is no rendering wanted or available.  I.e. use bare Denote
+;; IDs in your notes and they act as links.  This makes dealing with
+;; bare text note files more visually pleasant especially when used
+;; also outside Emacs.
 ;;
-;; The package relies on Denote.
+;; The package relies on Denote package.
 
 ;;; Code:
 
@@ -57,9 +58,18 @@
   :type 'string
   :group 'barezettel)
 
+(defcustom barezettel-denote-paragraph-start-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}.*?  "
+  "Regexp for paragraphs starting with Denote IDs."
+  :type 'string
+  :group 'barezettel)
+
 (defface barezettel--denote-id-face '((t (:inherit shadow)))
   "Face for bare Denote IDs."
   :group 'barezettel)
+
+(defvar-keymap barezettel-mode-map
+  :doc "Keymap for `barezettel-mode'."
+  "M-q" #'barezettel-fill-paragraph)
 
 (defvar-keymap barezettel-denote-id-keymap
   :doc "Keymap for barezettel ID buttons.")
@@ -72,11 +82,6 @@
         t)))
   "Keywords for `barezettel-mode' font-lock.")
 
-(defvar-local barezettel--original-visual-line-mode nil
-  "Original `visual-line-mode' state.")
-
-(defvar-local barezettel--original-visual-wrap-prefix-mode nil
-  "Original `visual-wrap-prefix-mode' state.")
 
 ;;;; TOC
 (defun barezettel--line-to-toc-fill-dots (fill-count)
@@ -153,8 +158,12 @@
 
 
 ;;;; Hanging indent for bare Denote id's
-;; (defun barezettel--jit-apply-denote-indent (beg end)
-;;   "Find Denote IDs between BEG and END and lock them with wrap prefix.
+(defvar-local barezettel--original-visual-line-mode nil
+  "Original `visual-line-mode' state.")
+
+(defvar-local barezettel--original-visual-wrap-prefix-mode nil
+  "Original `visual-wrap-prefix-mode' state.")
+
 (defun barezettel--fill-context-prefix-override (orig-fun from to &rest args)
   "Calculates text until two spaces and forces it as a visual prefix.
 If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
@@ -166,21 +175,28 @@ If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
 
 (defun barezettel--toggle-visual-hanging-indents (enable)
   "Toggle visual hanging indents based on ENABLE.
-Respects `barezettel-visual-hanging-indents'."
+Any non-nil value for ENABLE enables functionality, nil purges the
+setup.  This feature is based on `visual-wrap-prefix-mode'.  Respects
+`barezettel-visual-hanging-indents'.
+
+Do not use this function independently - it is tied to the global state
+of the minor mode."
   (if enable
-      (if barezettel-visual-hanging-indents
-          (progn
-            (advice-add 'fill-context-prefix :around #'barezettel--fill-context-prefix-override)
-            (visual-line-mode t)
-            (visual-wrap-prefix-mode t)))
-    (advice-remove 'fill-context-prefix #'barezettel--fill-context-prefix-override)
-    (visual-line-mode barezettel--original-visual-line-mode)
-    (visual-wrap-prefix-mode barezettel--original-visual-wrap-prefix-mode)))
+      (when barezettel-visual-hanging-indents
+        (setq-local barezettel--original-visual-line-mode visual-line-mode)
+        (setq-local barezettel--original-visual-wrap-prefix-mode (bound-and-true-p visual-wrap-prefix-mode))
+        (advice-add 'fill-context-prefix :around #'barezettel--fill-context-prefix-override)
+        (visual-line-mode t)
+        (visual-wrap-prefix-mode t))
+    (when barezettel-visual-hanging-indents
+      (advice-remove 'fill-context-prefix #'barezettel--fill-context-prefix-override)
+      (visual-line-mode barezettel--original-visual-line-mode)
+      (visual-wrap-prefix-mode barezettel--original-visual-wrap-prefix-mode))))
 
 ;;;; Interactive functions
 (defun barezettel--format-signature (signature)
   "Format SIGNATURE per `barezettel-use-brackets-around-signature'.
-If SIGNATURE was nil or user answered 'no', return nil."
+If SIGNATURE was nil or user answered no, return nil."
   (if (and signature (y-or-n-p "Include signature?"))
       (if barezettel-use-brackets-around-signature
           (format "(%s)" signature)
@@ -336,22 +352,104 @@ With universal argument ARG, open in another window."
     (font-lock-remove-keywords nil barezettel--font-lock-keywords))
   (font-lock-flush))
 
+;;;; Fill paragraph support for lines starting with Denote ID.
+(defvar-local barezettel--original-fill-paragraph-function nil
+  "The original command bound to `M-q' before minor mode was enabled.")
+
+;; (defvar-local barezettel--original-auto-fill-function nil
+;;   "The original function `auto-fill-function' before minor mode was enabled.")
+
+(defvar-local barezettel--original-paragraph-start nil
+  "The original variable `paragraph-start' before minor mode was enabled.")
+
+(defun barezettel-fill-paragraph (&optional justify)
+  "Fill-paragraph that handles adjacent Denote ID lines correctly.
+
+Prefix arg JUSTIFY non-nil means justify as well.
+
+If the current line starts with a Denote ID followed by two spaces, fill
+only the text section after the spaces while preserving the ID all the
+way until spaces as an indentation for subsequent lines.  Adjacent lines
+starting with with another Denote ID are treated as separate paragraphs
+and are not merged.
+
+In all other cases fall back to the major mode version or standard
+`fill-paragraph'."
+  (interactive "P")
+  (save-excursion
+    (when (not (bolp))
+        (backward-paragraph) (forward-char 1) (forward-line 0))
+
+    (if (looking-at barezettel-denote-paragraph-start-regexp)
+        (let* ((beg (match-end 0))
+               (id-length (- beg (match-beginning 0)))
+               (fill-prefix (make-string id-length ?\s))
+               (end (line-end-position)))
+
+          (save-excursion
+            (forward-line 1)
+            (while (and (not (eobp))
+                        (not (looking-at "[ \t]*\$"))
+                        (not (looking-at barezettel-denote-paragraph-start-regexp)))
+              (setq end (line-end-position))
+              (forward-line 1)))
+
+          (fill-region-as-paragraph beg end justify))
+
+      ;; Fallback fill-paragraph
+      (message "Fallback fill-paragraph")
+      (if (and barezettel--original-fill-paragraph-function
+               (commandp barezettel--original-fill-paragraph-function))
+          (funcall barezettel--original-fill-paragraph-function justify)
+        (let ((fill-paragraph-function nil))
+          (fill-paragraph justify))))))
+
+(defun barezettel-do-auto-fill ()
+  "Custom auto-fill function for `barezettel-mode'."
+  (when (> (current-column) fill-column)
+    (save-excursion
+      (barezettel-fill-paragraph))))
+
+(defun barezettel--setup-fill-paragraph (enable)
+  "Setup or purge fill paragraph behavior based on ENABLE.
+Any non-nil value for ENABLE enables behavior modifications, nil purges
+the setup."
+  ;; Keep original fill-paragraph saved no matter what
+  (setq-local barezettel--original-fill-paragraph-function
+              (keymap-lookup (current-global-map) "M-q"))
+
+  (if enable
+      (progn
+        (setq-local barezettel--original-paragraph-start paragraph-start)
+
+        (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
+        (setq-local paragraph-start
+            (concat "[ \t]*" barezettel-denote-paragraph-start-regexp
+                    "\\|"
+                    paragraph-start)))
+
+    (setq-local paragraph-start barezettel--original-paragraph-start)
+
+    (kill-local-variable 'normal-auto-fill-function)
+    (setq-local barezettel--original-paragraph-start nil)))
+
+
 ;;;###autoload
 (define-minor-mode barezettel-mode
   "Toggles `barezettel-mode'."
   :init-value nil
   :lighter " BZ"
-  ;; Save original states of various things
-  (setq barezettel--original-visual-line-mode visual-line-mode)
-  (setq barezettel--original-visual-wrap-prefix-mode (bound-and-true-p visual-wrap-prefix-mode))
+  :keymap barezettel-mode-map
 
   ;; Ignite Barezettel
   (barezettel--setup-font-lock barezettel-mode)
+  (barezettel--setup-fill-paragraph barezettel-mode)
   (barezettel--toggle-visual-hanging-indents barezettel-mode)
   (if barezettel-mode
       (progn
         (advice-add 'denote-retrieve-xref-alist-for-backlinks
                     :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
+
     (advice-remove 'denote-retrieve-xref-alist-for-backlinks
                    #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
 

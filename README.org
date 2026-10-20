@@ -8,10 +8,11 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 
 ** Features
 
-+ Hanging indents which extend the =visual-wrap-prefix-mode=: text following two spaces in the beginning of a line is treated as a prefix – hanging indents are constructed accordingly. This allows using IDs as bullets
-+ Jump between links
-+ Insert link also in form of a TOC line ~("Link description ............ TARGETID")~
-+ Extract region to a new note and replace the original region with the new note's ID
+- Jump between links
+- Insert link also in form of a TOC line ~("Link description ............ TARGETID")~
+- Extract region to a new note and replace the original region with the new note's ID
+- Visual hanging indents which extend the =visual-wrap-prefix-mode=: text following two spaces in the beginning of a line is treated as a prefix – hanging indents are constructed accordingly. This allows treating IDs as list markers
+- Aforementioned hanging indents support for =M-q= (fill-paragraph) and =auto-fill-mode=
 
 ** Installation
 
@@ -30,5 +31,5 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
   	 ("M-<return>" . #'barezettel-denote-show-targets-at-point))
     :custom
     (barezettel-use-brackets-around-signature t)
-    (barezettel-visual-hanging-indents t))
+    (barezettel-visual-hanging-indents t)))
 #+end_src
