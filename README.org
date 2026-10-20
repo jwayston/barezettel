@@ -1,4 +1,4 @@
-* barezettel.el - Minimalistic Zettelkasten minor mode for Denote
+* barezettel.el - Minimalistic Emacs Zettelkasten minor mode for Denote
 
 The core idea behind this package is to let you use Denote without the visual clutter caused by Org links and =denote:= prefixes when rendering is neither desired nor available. In other words, you can use bare Denote IDs in your notes and have them function as links. This makes plain-text note files much more pleasant to read outside Emacs.
 
