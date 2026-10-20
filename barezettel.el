@@ -71,17 +71,6 @@
   :doc "Keymap for `barezettel-mode'."
   "M-q" #'barezettel-fill-paragraph)
 
-(defvar-keymap barezettel-denote-id-keymap
-  :doc "Keymap for barezettel ID buttons.")
-
-(defvar barezettel--font-lock-keywords
-  `((,barezettel-denote-regexp
-     (0 `(face barezettel--denote-id-face
-          keymap ,barezettel-denote-id-keymap
-          help-echo barezettel--denote-id-help-echo)
-        t)))
-  "Keywords for `barezettel-mode' font-lock.")
-
 
 ;;;; TOC
 (defun barezettel--line-to-toc-fill-dots (fill-count)
@@ -303,6 +292,7 @@ ORIG-FN is the original backlink retrieval function."
     (append original
             (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
 
+;;;;; Link as search
 (defun barezettel-denote-show-targets-at-point (arg)
   "Show completing list of all the notes containing the ID at point.
 With universal argument ARG, open in another window."
@@ -330,6 +320,17 @@ With universal argument ARG, open in another window."
 
 
 ;;;; Font lock rules for bare Denote IDs
+(defvar-keymap barezettel-denote-id-keymap
+  :doc "Keymap for barezettel ID buttons.")
+
+(defvar barezettel--font-lock-keywords
+  `((,barezettel-denote-regexp
+     (0 `(face barezettel--denote-id-face
+               keymap ,barezettel-denote-id-keymap
+               help-echo barezettel--denote-id-help-echo)
+        t)))
+  "Keywords for `barezettel-mode' font-lock.")
+
 (defun barezettel--denote-id-help-echo (_window _object position)
   "Return Denote filename for the Denote ID at POSITION."
   (save-excursion
