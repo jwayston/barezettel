@@ -356,9 +356,6 @@ With universal argument ARG, open in another window."
 (defvar-local barezettel--original-fill-paragraph-function nil
   "The original command bound to `M-q' before minor mode was enabled.")
 
-;; (defvar-local barezettel--original-auto-fill-function nil
-;;   "The original function `auto-fill-function' before minor mode was enabled.")
-
 (defvar-local barezettel--original-paragraph-start nil
   "The original variable `paragraph-start' before minor mode was enabled.")
 
