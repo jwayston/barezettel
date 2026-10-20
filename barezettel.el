@@ -376,33 +376,35 @@ and are not merged.
 In all other cases fall back to the major mode version or standard
 `fill-paragraph'."
   (interactive "P")
-  (save-excursion
-    (when (not (bolp))
+  (let ((cursor-orig (point)))
+    (save-excursion
+      (when (not (bolp))
         (backward-paragraph) (forward-char 1) (forward-line 0))
 
-    (if (looking-at barezettel-denote-paragraph-start-regexp)
-        (let* ((beg (match-end 0))
-               (id-length (- beg (match-beginning 0)))
-               (fill-prefix (make-string id-length ?\s))
-               (end (line-end-position)))
+      (if (looking-at barezettel-denote-paragraph-start-regexp)
+          (let* ((beg (match-end 0))
+                 (id-length (- beg (match-beginning 0)))
+                 (fill-prefix (make-string id-length ?\s))
+                 (end (line-end-position)))
 
-          (save-excursion
-            (forward-line 1)
-            (while (and (not (eobp))
-                        (not (looking-at "[ \t]*\$"))
-                        (not (looking-at barezettel-denote-paragraph-start-regexp)))
-              (setq end (line-end-position))
-              (forward-line 1)))
+            (save-excursion
+              (forward-line 1)
+              (while (and (not (eobp))
+                          (not (looking-at "[ \t]*\$"))
+                          (not (looking-at barezettel-denote-paragraph-start-regexp)))
+                (setq end (line-end-position))
+                (forward-line 1)))
 
-          (fill-region-as-paragraph beg end justify))
+            (fill-region-as-paragraph beg end justify))
 
-      ;; Fallback fill-paragraph
-      (message "Fallback fill-paragraph")
-      (if (and barezettel--original-fill-paragraph-function
-               (commandp barezettel--original-fill-paragraph-function))
-          (funcall barezettel--original-fill-paragraph-function justify)
-        (let ((fill-paragraph-function nil))
-          (fill-paragraph justify))))))
+        ;; Fallback fill-paragraph
+        (if (and barezettel--original-fill-paragraph-function
+                 (commandp barezettel--original-fill-paragraph-function))
+            (progn
+              (goto-char cursor-orig)
+              (funcall barezettel--original-fill-paragraph-function justify))
+          (let ((fill-paragraph-function nil))
+            (fill-paragraph justify)))))))
 
 (defun barezettel-do-auto-fill ()
   "Custom auto-fill function for `barezettel-mode'."
