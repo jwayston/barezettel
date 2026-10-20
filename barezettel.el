@@ -21,7 +21,6 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 ;;; Commentary:
 
 ;; The core idea of this package is to allow to use Denote without
@@ -433,7 +432,7 @@ the setup."
     (kill-local-variable 'normal-auto-fill-function)
     (setq-local barezettel--original-paragraph-start nil)))
 
-
+;;;; Minor mode setup
 ;;;###autoload
 (define-minor-mode barezettel-mode
   "Toggles `barezettel-mode'."
