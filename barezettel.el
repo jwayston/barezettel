@@ -78,7 +78,7 @@
 
 (defun barezettel--line-to-toc (threshold indent)
   "Generate a nice TOC line with INDENT no longer than THRESHOLD."
-  (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
+  (interactive (list (read-number "Threshold: " (current-fill-column)) (read-number "Indent: " 0)))
   (forward-line 0)
   (insert-char ?\s indent)
 
@@ -86,7 +86,7 @@
          (end (line-end-position))
          (llen (string-width (buffer-substring-no-properties beg end))))
 
-    (if (< llen threshold)  ;; Short line, just place the dots
+    (if (< llen threshold) ; Short line, just place the dots
         (barezettel--line-to-toc-fill-dots (- threshold 1 llen))
 
       ;; Longer lines
