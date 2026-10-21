@@ -283,13 +283,21 @@ With universal argument ARG, prepend the title before the ID."
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
 (defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
-  "Include raw occurrences of Denote IDs (IDENTIFIER) in Denote backlinks.
+  "Include raw occurrences of Denote ID IDENTIFIER in Denote backlinks.
 ORIG-FN is the original backlink retrieval function."
   (let* ((original (funcall orig-fn identifier))
          (raw (denote-retrieve-xref-alist identifier))
          (seen (mapcar #'car original)))
     (append original
             (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
+
+(defun barezettel--setup-denote-backlinks (enable)
+  "Toggle include Denote bare IDs in backlinks based on ENABLE."
+  (if enable
+      (advice-add 'denote-retrieve-xref-alist-for-backlinks
+                  :around #'barezettel--denote-retrieve-xref-alist-for-backlinks)
+    (advice-remove 'denote-retrieve-xref-alist-for-backlinks
+                   #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
 
 ;;;;; Link as search
 (defun barezettel-denote-show-targets-at-point (arg)
@@ -408,8 +416,7 @@ In all other cases fall back to the major mode version or standard
 
 (defun barezettel-do-auto-fill ()
   "Custom auto-fill function for `barezettel-mode'."
-  ;; TODO: Fix the bug that causes pressing space at the end of line
-  ;; not to register as a character when autofilling
+  ;; BUG: Pressing space at the end of line autofills, not inserts it
   (when (> (current-column) fill-column)
     (save-excursion
       (barezettel-fill-paragraph))))
@@ -431,9 +438,10 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
 
         (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
         (setq-local paragraph-start
-            (concat "[ \t]*" barezettel-denote-paragraph-start-regexp
-                    "\\|"
-                    paragraph-start)))
+                    (concat "[ \t]*"
+                            barezettel-denote-paragraph-start-regexp
+                            "\\|"
+                            paragraph-start)))
 
     (setq-local paragraph-start barezettel--original-paragraph-start)
 
@@ -452,12 +460,6 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
   (barezettel--setup-font-lock barezettel-mode)
   (barezettel--setup-fill-paragraph barezettel-mode)
   (barezettel--toggle-visual-hanging-indents barezettel-mode)
-  (if barezettel-mode
-      (progn
-        (advice-add 'denote-retrieve-xref-alist-for-backlinks
-                    :around #'barezettel--denote-retrieve-xref-alist-for-backlinks))
-
-    (advice-remove 'denote-retrieve-xref-alist-for-backlinks
-                   #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
+  (barezettel--setup-denote-backlinks barezettel-mode))
 
 (provide 'barezettel)
