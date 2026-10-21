@@ -359,6 +359,9 @@ With universal argument ARG, open in another window."
 (defvar-local barezettel--original-paragraph-start nil
   "The original variable `paragraph-start' before minor mode was enabled.")
 
+(defvar-local barezettel--original-normal-auto-fill-function nil
+  "The original variable `normal-auto-fill-function' before minor mode was enabled.")
+
 (defun barezettel-fill-paragraph (&optional justify)
   "Fill-paragraph that handles adjacent Denote ID lines correctly.
 
@@ -405,6 +408,8 @@ In all other cases fall back to the major mode version or standard
 
 (defun barezettel-do-auto-fill ()
   "Custom auto-fill function for `barezettel-mode'."
+  ;; TODO: Fix the bug that causes pressing space at the end of line
+  ;; not to register as a character when autofilling
   (when (> (current-column) fill-column)
     (save-excursion
       (barezettel-fill-paragraph))))
@@ -412,7 +417,9 @@ In all other cases fall back to the major mode version or standard
 (defun barezettel--setup-fill-paragraph (enable)
   "Setup or purge fill paragraph behavior based on ENABLE.
 Any non-nil value for ENABLE enables behavior modifications, nil purges
-the setup."
+the setup.
+
+The setup affects both `paragraph-fill' and `auto-fill-mode'."
   ;; Keep original fill-paragraph saved no matter what
   (setq-local barezettel--original-fill-paragraph-function
               (keymap-lookup (current-global-map) "M-q"))
@@ -420,6 +427,7 @@ the setup."
   (if enable
       (progn
         (setq-local barezettel--original-paragraph-start paragraph-start)
+        (setq-local barezettel--original-normal-auto-fill-function normal-auto-fill-function)
 
         (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
         (setq-local paragraph-start
@@ -429,7 +437,7 @@ the setup."
 
     (setq-local paragraph-start barezettel--original-paragraph-start)
 
-    (kill-local-variable 'normal-auto-fill-function)
+    (setq-local normal-auto-fill-function barezettel--original-normal-auto-fill-function)
     (setq-local barezettel--original-paragraph-start nil)))
 
 ;;;; Minor mode setup
