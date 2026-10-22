@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.2.1
+;; Version: 0.2.2
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -37,6 +37,7 @@
 (require 'org)
 (require 'denote)
 
+;;;; Customizations
 (defgroup barezettel nil
   "Minimalistic Zettelkasten minor mode for Denote."
   :prefix "barezettel--"
@@ -67,8 +68,7 @@
   :group 'barezettel)
 
 (defvar-keymap barezettel-mode-map
-  :doc "Keymap for `barezettel-mode'."
-  "M-q" #'barezettel-fill-paragraph)
+  :doc "Keymap for `barezettel-mode'.")
 
 
 ;;;; TOC
@@ -361,8 +361,15 @@ With universal argument ARG, open in another window."
   (font-lock-flush))
 
 ;;;; Fill paragraph support for lines starting with Denote ID.
+(defvar-keymap barezettel-mode--emulation-map
+  :doc "Emulation keymap for `barezettel-mode'.
+Only purpose for this is to remap a key used for `fill-paragraph' to
+`barezettel-fill-paragraph' when the `barezettel-mode' is active."
+  
+  "<remap> <fill-paragraph>" #'barezettel-fill-paragraph)
+
 (defvar-local barezettel--original-fill-paragraph-function nil
-  "The original command bound to `M-q' before minor mode was enabled.")
+  "The original `fill-paragraph-function' before minor mode was enabled.")
 
 (defvar-local barezettel--original-paragraph-start nil
   "The original variable `paragraph-start' before minor mode was enabled.")
@@ -437,27 +444,37 @@ the setup.
 
 The setup affects both `paragraph-fill' and `auto-fill-mode'."
 
-  ;; Keep original fill-paragraph saved no matter what
-  (setq-local barezettel--original-fill-paragraph-function
-              (keymap-lookup (current-global-map) "M-q"))
-
   (if enable
       (progn
+        ;; Save originals
+        (setq-local barezettel--original-fill-paragraph-function fill-paragraph-function)
         (setq-local barezettel--original-paragraph-start paragraph-start)
         (setq-local barezettel--original-normal-auto-fill-function normal-auto-fill-function)
 
-        (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
+        ;; Setup mode-specific values
+        (setq-local fill-paragraph-function #'barezettel-fill-paragraph)
         (setq-local paragraph-start
                     (concat paragraph-start "\\|" "[ \t]*"
-                     barezettel-denote-paragraph-start-regexp)))
+                            barezettel-denote-paragraph-start-regexp))
+        (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
 
+        (let ((pair `(barezettel-mode . barezettel-mode--emulation-map)))
+          (unless (member pair emulation-mode-map-alists)
+            (add-to-list 'emulation-mode-map-alists pair))))
+
+    ;; Restore originals
+    (setq-local fill-paragraph-function barezettel--original-fill-paragraph-function)
     (setq-local paragraph-start barezettel--original-paragraph-start)
-
     (setq-local normal-auto-fill-function barezettel--original-normal-auto-fill-function)
-    (setq-local barezettel--original-paragraph-start nil)))
+
+    ;; Cleanup
+    (setq-local barezettel--original-paragraph-start nil)
+    (setq emulation-mode-map-alists
+          (assoc-delete-all 'barezettel-mode emulation-mode-map-alists))))
 
 ;;;; Minor mode setup
 ;;;###autoload
+
 (define-minor-mode barezettel-mode
   "Toggles `barezettel-mode'."
   :init-value nil
