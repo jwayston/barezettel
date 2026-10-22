@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.2.0
+;; Version: 0.2.1
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -397,8 +397,7 @@ was set before the minor mode was enabled."
           (let* ((beg (match-end 0))
                  (id-length (- beg (match-beginning 0)))
                  (fill-prefix (make-string id-length ?\s))
-                 (end (save-excursion (backward-char 1) (line-end-position))))
-
+                 (end (line-end-position)))
             (save-excursion
               (forward-line 1)
               (while (and (not (eobp))
@@ -406,7 +405,6 @@ was set before the minor mode was enabled."
                           (not (looking-at barezettel-denote-paragraph-start-regexp)))
                 (setq end (line-end-position))
                 (forward-line 1)))
-            (goto-char end)
             (fill-region-as-paragraph beg (1- end) justify))
 
         ;; Fallback fill-paragraph
@@ -438,6 +436,7 @@ Any non-nil value for ENABLE enables behavior modifications, nil purges
 the setup.
 
 The setup affects both `paragraph-fill' and `auto-fill-mode'."
+
   ;; Keep original fill-paragraph saved no matter what
   (setq-local barezettel--original-fill-paragraph-function
               (keymap-lookup (current-global-map) "M-q"))
@@ -449,10 +448,8 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
 
         (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
         (setq-local paragraph-start
-                    (concat "[ \t]*"
-                            barezettel-denote-paragraph-start-regexp
-                            "\\|"
-                            paragraph-start)))
+                    (concat paragraph-start "\\|" "[ \t]*"
+                     barezettel-denote-paragraph-start-regexp)))
 
     (setq-local paragraph-start barezettel--original-paragraph-start)
 
