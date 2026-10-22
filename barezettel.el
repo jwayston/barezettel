@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.2.2
+;; Version: 0.2.3
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -49,7 +49,7 @@
   :group 'barezettel)
 
 (defcustom barezettel-use-brackets-around-signature t
-  "Non-nil means `barezettel-mode' will add brackets around signature."
+  "Non-nil means signatures are formatted with brackets around them."
   :type 'boolean
   :group 'barezettel)
 
@@ -163,20 +163,26 @@ If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
 
 (defun barezettel--toggle-visual-hanging-indents (enable)
   "Toggle visual hanging indents based on ENABLE.
-Any non-nil value for ENABLE enables functionality, nil purges the
-setup.  This feature is based on `visual-wrap-prefix-mode'.  Respects
-`barezettel-visual-hanging-indents'.
 
-Do not use this function independently - it is tied to the global state
-of the minor mode."
+Any non-nil value for ENABLE enables functionality, nil purges the
+setup.  However, enabling requires the variable
+`barezettel-visual-hanging-indents' to be non-nil.
+
+This feature is based on `visual-line-mode' and
+`visual-wrap-prefix-mode' which are turned on when enabled."
   (if enable
       (when barezettel-visual-hanging-indents
+        ;; Store originals
         (setq-local barezettel--original-visual-line-mode visual-line-mode)
         (setq-local barezettel--original-visual-wrap-prefix-mode (bound-and-true-p visual-wrap-prefix-mode))
+
+        ;; Setup the behavior
         (advice-add 'fill-context-prefix :around #'barezettel--fill-context-prefix-override)
         (visual-line-mode t)
         (visual-wrap-prefix-mode t))
+
     (when barezettel-visual-hanging-indents
+      ;; Purge setup
       (advice-remove 'fill-context-prefix #'barezettel--fill-context-prefix-override)
       (visual-line-mode barezettel--original-visual-line-mode)
       (visual-wrap-prefix-mode barezettel--original-visual-wrap-prefix-mode))))
@@ -184,6 +190,7 @@ of the minor mode."
 ;;;; Interactive functions
 (defun barezettel--format-signature (signature)
   "Format SIGNATURE per `barezettel-use-brackets-around-signature'.
+
 If SIGNATURE was nil or user answered no, return nil."
   (if (and signature (y-or-n-p "Include signature?"))
       (if barezettel-use-brackets-around-signature
@@ -257,7 +264,7 @@ With universal argument ARG, prepend the title before the ID."
     (call-interactively #'barezettel-denote-append-title-at-point)))
 
 (defun barezettel-denote-extract-region-and-link ()
-  "Extract the region to a new Denote note and replace the region with its ID."
+  "Extract the region to a new note and leave a link to the new note."
   (interactive)
   (unless (use-region-p)
     (user-error "No active region"))
@@ -288,7 +295,10 @@ ORIG-FN is the original backlink retrieval function."
   (denote-retrieve-xref-alist identifier))
 
 (defun barezettel--setup-denote-backlinks (enable)
-  "Toggle include Denote bare IDs in backlinks based on ENABLE."
+  "Toggle include Denote bare IDs in backlinks based on ENABLE.
+
+Changes `denote-retrieve-xref-alist-for-backlinks' behavior so that it
+includes every note that contains the ID anywhere in the note."
   (if enable
       (advice-add 'denote-retrieve-xref-alist-for-backlinks
                   :around #'barezettel--denote-retrieve-xref-alist-for-backlinks)
@@ -298,8 +308,9 @@ ORIG-FN is the original backlink retrieval function."
 ;;;;; Link as search
 (defun barezettel-denote-show-targets-at-point (arg)
   "Show completing list of all the notes containing the ID at point.
+
 With universal argument ARG, open the selected note in another
-window. The ID at point is the default one."
+window.  The ID at point is the default one."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
@@ -341,13 +352,19 @@ window. The ID at point is the default one."
     (goto-char position)
     (skip-chars-backward "0-9T")
     (when (looking-at barezettel-denote-regexp)
-      (let ((filename (denote-get-path-by-id (match-string-no-properties 0))))
-        (if filename
-            (file-name-nondirectory filename)
-          "ID not detected in any Denote filename")))))
+      (if-let* ((path (denote-get-path-by-id (match-string-no-properties 0)))
+                (filename (file-name-nondirectory path)))
+          (format "%s %s %s"
+                  (or (denote-retrieve-filename-signature filename) "")
+                  (or (denote-retrieve-filename-title filename) "")
+                  (or (denote-retrieve-filename-keywords filename) ""))
+        "ID not detected in any Denote filename"))))
 
 (defun barezettel--setup-font-lock (enable)
-  "Enable or disable `barezettel-mode' font-lock rules based on ENABLE."
+  "Enable or disable `barezettel-mode' font-lock rules based on ENABLE.
+
+Any non-nil value for ENABLE enables behavior modifications, nil purges
+the setup."
   (if enable
       (progn
         (add-to-list 'font-lock-extra-managed-props 'help-echo)
@@ -362,7 +379,6 @@ window. The ID at point is the default one."
   :doc "Emulation keymap for `barezettel-mode'.
 Only purpose for this is to remap a key used for `fill-paragraph' to
 `barezettel-fill-paragraph' when the `barezettel-mode' is active."
-  
   "<remap> <fill-paragraph>" #'barezettel-fill-paragraph)
 
 (defvar-local barezettel--original-fill-paragraph-function nil
@@ -436,6 +452,7 @@ was set before the minor mode was enabled."
 
 (defun barezettel--setup-fill-paragraph (enable)
   "Setup or purge fill paragraph behavior based on ENABLE.
+
 Any non-nil value for ENABLE enables behavior modifications, nil purges
 the setup.
 
