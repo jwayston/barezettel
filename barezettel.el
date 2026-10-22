@@ -285,11 +285,7 @@ With universal argument ARG, prepend the title before the ID."
 (defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
   "Include raw occurrences of Denote ID IDENTIFIER in Denote backlinks.
 ORIG-FN is the original backlink retrieval function."
-  (let* ((original (funcall orig-fn identifier))
-         (raw (denote-retrieve-xref-alist identifier))
-         (seen (mapcar #'car original)))
-    (append original
-            (seq-remove (lambda (entry) (member (car entry) seen)) raw))))
+  (denote-retrieve-xref-alist identifier))
 
 (defun barezettel--setup-denote-backlinks (enable)
   "Toggle include Denote bare IDs in backlinks based on ENABLE."
@@ -302,7 +298,8 @@ ORIG-FN is the original backlink retrieval function."
 ;;;;; Link as search
 (defun barezettel-denote-show-targets-at-point (arg)
   "Show completing list of all the notes containing the ID at point.
-With universal argument ARG, open in another window."
+With universal argument ARG, open the selected note in another
+window. The ID at point is the default one."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
@@ -319,7 +316,7 @@ With universal argument ARG, open in another window."
                                     (cons (file-relative-name f (car (denote-directories))) f))
                                   all-files))
                  (default-choice (car (car choices)))
-                 (selected (completing-read "ID was found in notes: " choices nil t nil nil default-choice)))
+                 (selected (completing-read "Open the note: " choices nil t nil nil default-choice)))
             (when-let* ((path (cdr (assoc selected choices))))
               (if (equal arg '(4))
                   (find-file-other-window path)
