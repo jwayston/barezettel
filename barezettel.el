@@ -370,10 +370,11 @@ With universal argument ARG, open in another window."
 (defvar-local barezettel--original-normal-auto-fill-function nil
   "The original variable `normal-auto-fill-function' before minor mode was enabled.")
 
-(defun barezettel-fill-paragraph (&optional justify)
-  "Fill-paragraph that handles adjacent Denote ID lines correctly.
+(defun barezettel-fill-paragraph (&optional justify auto-fill)
+  "Fill-paragraph that handles Denote ID lines too.
 
-Prefix arg JUSTIFY non-nil means justify as well.
+Prefix arg JUSTIFY non-nil means justify as well.  AUTO-FILL non-nil
+means that this function can be used along with `auto-fill-mode'.
 
 If the current line starts with a Denote ID followed by two spaces, fill
 only the text section after the spaces while preserving the ID all the
@@ -381,8 +382,11 @@ way until spaces as an indentation for subsequent lines.  Adjacent lines
 starting with with another Denote ID are treated as separate paragraphs
 and are not merged.
 
-In all other cases fall back to the major mode version or standard
-`fill-paragraph'."
+Otherwise fall back to the major mode version or standard
+`fill-paragraph'
+
+When AUTO-FILL is non-nil fallback is `normal-auto-fill-function' that
+was set before the minor mode was enabled."
   (interactive "P")
   (let ((cursor-orig (point)))
     (save-excursion
@@ -393,7 +397,7 @@ In all other cases fall back to the major mode version or standard
           (let* ((beg (match-end 0))
                  (id-length (- beg (match-beginning 0)))
                  (fill-prefix (make-string id-length ?\s))
-                 (end (line-end-position)))
+                 (end (save-excursion (backward-char 1) (line-end-position))))
 
             (save-excursion
               (forward-line 1)
@@ -402,24 +406,31 @@ In all other cases fall back to the major mode version or standard
                           (not (looking-at barezettel-denote-paragraph-start-regexp)))
                 (setq end (line-end-position))
                 (forward-line 1)))
-
-            (fill-region-as-paragraph beg end justify))
+            (goto-char end)
+            (fill-region-as-paragraph beg (1- end) justify))
 
         ;; Fallback fill-paragraph
-        (if (and barezettel--original-fill-paragraph-function
-                 (commandp barezettel--original-fill-paragraph-function))
+        (if (and auto-fill auto-fill-function)
+            ;; Are we called in auto-fill mode?
             (progn
               (goto-char cursor-orig)
-              (funcall barezettel--original-fill-paragraph-function justify))
-          (let ((fill-paragraph-function nil))
-            (fill-paragraph justify)))))))
+              (if barezettel--original-normal-auto-fill-function
+                  (funcall barezettel--original-normal-auto-fill-function)
+                (funcall normal-auto-fill-function)))
+
+          ;; No auto-fill-mode, just fill the paragraph
+          (if (and barezettel--original-fill-paragraph-function
+                   (commandp barezettel--original-fill-paragraph-function))
+              (progn
+                (goto-char cursor-orig)
+                (funcall barezettel--original-fill-paragraph-function justify))
+            (let ((fill-paragraph-function nil))
+              (fill-paragraph justify))))))))
 
 (defun barezettel-do-auto-fill ()
   "Custom auto-fill function for `barezettel-mode'."
-  ;; BUG: Pressing space at the end of line autofills, not inserts it
   (when (> (current-column) fill-column)
-    (save-excursion
-      (barezettel-fill-paragraph))))
+    (save-excursion (barezettel-fill-paragraph nil t))))
 
 (defun barezettel--setup-fill-paragraph (enable)
   "Setup or purge fill paragraph behavior based on ENABLE.
