@@ -6,13 +6,17 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 
 *This package is under early stages of development. Expect breaking and sudden changes in directions it will go. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.*
 
+[[file:./screenshots/screenshot1.png]]
+
 ** Features
 
-- Jump between links
-- Insert link also in form of a TOC line ~("Link description ............ TARGETID")~
+- Jump between links in the buffer
+- Open link at point following "link as search" idea
+- Expand ID with its corresponding title at point
+- Insert link also in form of a TOC line
 - Extract region to a new note and replace the original region with the new note's ID
 - Visual hanging indents which extend the =visual-wrap-prefix-mode=: text following two spaces in the beginning of a line is treated as a prefix – hanging indents are constructed accordingly. This allows treating IDs as list markers
-- Aforementioned hanging indents support for =M-q= (fill-paragraph) and =auto-fill-mode=
+- Aforementioned hanging indents support for =M-q= (=fill-paragraph=) and =auto-fill-mode=
 
 ** Installation
 
