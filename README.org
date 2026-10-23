@@ -6,6 +6,8 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 
 *This package is under early stages of development. Expect breaking and sudden changes in directions it will go. Right now the development is driven by needs dictated by my personal Zettelkasten workflow.*
 
+** What does it look like?
+
 [[file:./screenshots/screenshot1.png]]
 
 ** Features
@@ -24,9 +26,8 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
   (use-package barezettel
     :load-path "path/you/downloaded/this"
     :ensure nil
-    :hook (text-mode . barezettel-mode)
     :bind (("C-c n x" . #'barezettel-denote-append-title-at-point)
-           ("C-c n X" . #'barezettel-denote-extract-region-and-link
+           ("C-c n X" . #'barezettel-denote-extract-region-and-link)
            ("C-c n l" . #'barezettel-denote-link)
   	 ("C-c n t" . #'barezettel-denote-link-toc)
   	 ("C-c n >" . #'barezettel-forward-id)
@@ -35,5 +36,7 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
   	 ("M-<return>" . #'barezettel-denote-show-targets-at-point))
     :custom
     (barezettel-use-brackets-around-signature t)
-    (barezettel-visual-hanging-indents t)))
+    (barezettel-visual-hanging-indents t)
+    :config
+    (global-barezettel-mode t))
 #+end_src

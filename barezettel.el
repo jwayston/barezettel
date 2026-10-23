@@ -289,7 +289,7 @@ With universal argument ARG, prepend the title before the ID."
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks
-(defun barezettel--denote-retrieve-xref-alist-for-backlinks (orig-fn identifier)
+(defun barezettel--denote-retrieve-xref-alist-for-backlinks (_orig-fn identifier)
   "Include raw occurrences of Denote ID IDENTIFIER in Denote backlinks.
 ORIG-FN is the original backlink retrieval function."
   (denote-retrieve-xref-alist identifier))
@@ -357,7 +357,7 @@ window.  The ID at point is the default one."
           (format "%s %s %s"
                   (or (denote-retrieve-filename-signature filename) "")
                   (or (denote-retrieve-filename-title filename) "")
-                  (or (denote-retrieve-filename-keywords filename) ""))
+                  (or (denote-extract-keywords-from-path filename) ""))
         "ID not detected in any Denote filename"))))
 
 (defun barezettel--setup-font-lock (enable)
@@ -500,5 +500,14 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
   (barezettel--setup-fill-paragraph barezettel-mode)
   (barezettel--toggle-visual-hanging-indents barezettel-mode)
   (barezettel--setup-denote-backlinks barezettel-mode))
+
+(defun barezettel--enable-if-denote-note ()
+  "Enable `barezettel-mode' if the file is recognized as a Denote note."
+  (when (and (buffer-file-name)
+             (fboundp 'denote-file-is-note-p)
+             (denote-file-is-note-p (buffer-file-name)))
+    (barezettel-mode t)))
+
+(define-globalized-minor-mode global-barezettel-mode barezettel-mode barezettel--enable-if-denote-note)
 
 (provide 'barezettel)
