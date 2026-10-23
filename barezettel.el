@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.2.3
+;; Version: 0.2.4
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -201,21 +201,23 @@ If SIGNATURE was nil or user answered no, return nil."
 (defun barezettel-forward-id ()
   "Jump to a next ID."
   (interactive)
-  (save-excursion
-    (forward-word) (forward-char)
-    (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t)))
-  (if (not match) (message "No more IDs ahead")
-    (goto-char (prop-match-beginning match))))
+  (let (match)
+    (save-excursion
+      (forward-word) (forward-char)
+      (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t)))
+    (if (not match) (message "No more IDs ahead")
+      (goto-char (prop-match-beginning match)))))
 
 (defun barezettel-backward-id ()
   "Jump to a previous ID."
   (interactive)
-  (save-excursion
-    (unless (looking-at "^\\|$\\|\\s\\|\\b\\w")
-      (backward-word))
-    (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t)))
-  (if (not match) (message "No more IDs before")
-    (goto-char (prop-match-beginning match))))
+  (let (match)
+    (save-excursion
+      (unless (looking-at "^\\|$\\|\\s\\|\\b\\w")
+        (backward-word))
+      (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t)))
+    (if (not match) (message "No more IDs before")
+      (goto-char (prop-match-beginning match)))))
 
 
 (defun barezettel-denote-org-link-dismantle ()
@@ -481,20 +483,13 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
     (setq-local barezettel--original-paragraph-start nil)))
 
 ;;;; Minor mode setup
-;;;###autoload
 (defvar barezettel--emulation-alist
   `((barezettel-mode . ,barezettel-mode--emulation-map)))
 
 (unless (member 'barezettel--emulation-alist emulation-mode-map-alists)
   (add-to-list 'emulation-mode-map-alists 'barezettel--emulation-alist))
 
-(defun barezettel--enable-if-denote-note ()
-  "Enable `barezettel-mode' if the file is recognized as a Denote note."
-  (when (and (buffer-file-name)
-             (fboundp 'denote-file-is-note-p)
-             (denote-file-is-note-p (buffer-file-name)))
-    (barezettel-mode 1)))
-
+;;;###autoload
 (define-minor-mode barezettel-mode
   "Toggles `barezettel-mode' minor mode.
 
@@ -510,6 +505,14 @@ outside Emacs more pleasant."
   (barezettel--toggle-visual-hanging-indents barezettel-mode)
   (barezettel--setup-denote-backlinks barezettel-mode))
 
+(defun barezettel--enable-if-denote-note ()
+  "Enable `barezettel-mode' if the file is recognized as a Denote note."
+  (when (and (buffer-file-name)
+             (fboundp 'denote-file-is-note-p)
+             (denote-file-is-note-p (buffer-file-name)))
+    (barezettel-mode 1)))
+
+;;;###autoload
 (define-globalized-minor-mode global-barezettel-mode barezettel-mode barezettel--enable-if-denote-note)
 
 (provide 'barezettel)
