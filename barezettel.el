@@ -470,11 +470,7 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
         (setq-local paragraph-start
                     (concat paragraph-start "\\|" "[ \t]*"
                             barezettel-denote-paragraph-start-regexp))
-        (setq-local normal-auto-fill-function #'barezettel-do-auto-fill)
-
-        (let ((pair `(barezettel-mode . barezettel-mode--emulation-map)))
-          (unless (member pair emulation-mode-map-alists)
-            (add-to-list 'emulation-mode-map-alists pair))))
+        (setq-local normal-auto-fill-function #'barezettel-do-auto-fill))
 
     ;; Restore originals
     (setq-local fill-paragraph-function barezettel--original-fill-paragraph-function)
@@ -482,31 +478,37 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
     (setq-local normal-auto-fill-function barezettel--original-normal-auto-fill-function)
 
     ;; Cleanup
-    (setq-local barezettel--original-paragraph-start nil)
-    (setq emulation-mode-map-alists
-          (assoc-delete-all 'barezettel-mode emulation-mode-map-alists))))
+    (setq-local barezettel--original-paragraph-start nil)))
 
 ;;;; Minor mode setup
 ;;;###autoload
+(defvar barezettel--emulation-alist
+  `((barezettel-mode . ,barezettel-mode--emulation-map)))
 
-(define-minor-mode barezettel-mode
-  "Toggles `barezettel-mode'."
-  :init-value nil
-  :lighter " BZ"
-  :keymap barezettel-mode-map
-
-  ;; Ignite Barezettel
-  (barezettel--setup-font-lock barezettel-mode)
-  (barezettel--setup-fill-paragraph barezettel-mode)
-  (barezettel--toggle-visual-hanging-indents barezettel-mode)
-  (barezettel--setup-denote-backlinks barezettel-mode))
+(unless (member 'barezettel--emulation-alist emulation-mode-map-alists)
+  (add-to-list 'emulation-mode-map-alists 'barezettel--emulation-alist))
 
 (defun barezettel--enable-if-denote-note ()
   "Enable `barezettel-mode' if the file is recognized as a Denote note."
   (when (and (buffer-file-name)
              (fboundp 'denote-file-is-note-p)
              (denote-file-is-note-p (buffer-file-name)))
-    (barezettel-mode t)))
+    (barezettel-mode 1)))
+
+(define-minor-mode barezettel-mode
+  "Toggles `barezettel-mode' minor mode.
+
+Barezettel minor mode enables Denote interact with bare Denote IDs as if
+they were links.  This is to avoid visual clutter and make using notes
+outside Emacs more pleasant."
+  :init-value nil
+  :lighter " BZ"
+  :keymap barezettel-mode-map
+
+  (barezettel--setup-font-lock barezettel-mode)
+  (barezettel--setup-fill-paragraph barezettel-mode)
+  (barezettel--toggle-visual-hanging-indents barezettel-mode)
+  (barezettel--setup-denote-backlinks barezettel-mode))
 
 (define-globalized-minor-mode global-barezettel-mode barezettel-mode barezettel--enable-if-denote-note)
 
