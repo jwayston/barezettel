@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -293,6 +293,14 @@ With universal argument ARG, prepend the title before the ID."
           (delete-region beg end) (goto-char beg) (insert id)))
       (set-marker beg nil)
       (set-marker end nil))))
+
+(defun barezettel-denote-random-note ()
+  "Open a random Denote note file."
+  (interactive)
+  (when-let* ((files (denote-directory-files nil t t nil t))
+              (n (length files))
+              (pick (nth (random n) files)))
+    (find-file pick)))
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Allow bare Denote IDs to be registered as backlinks

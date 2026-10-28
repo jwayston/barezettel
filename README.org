@@ -20,6 +20,7 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 - Extract a region to a new note and replace the original region with the new note's ID
 - Visual hanging indents which extend the =visual-wrap-prefix-mode=: text following two spaces in the beginning of a line is treated as a prefix – hanging indents are constructed accordingly. This allows treating IDs as list markers
 - Aforementioned hanging indents support for =M-q= (=fill-paragraph=) and =auto-fill-mode=
+- Open a random Denote note
 
 ** Installation
 
@@ -32,7 +33,8 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
            ("C-c n X" . #'barezettel-denote-extract-region-and-link)
            ("C-c n l" . #'barezettel-denote-link)
   	 ("C-c n t" . #'barezettel-denote-link-toc)
-  	 ("C-c n >" . #'barezettel-forward-id)
+           ("C-c n r" . #'barezettel-denote-random-note)
+           ("C-c n >" . #'barezettel-forward-id)
   	 ("C-c n <" . #'barezettel-backward-id)
   	 :map barezettel-denote-id-keymap
   	 ("M-<return>" . #'barezettel-denote-show-targets-at-point))
@@ -43,3 +45,5 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
     :config
     (global-barezettel-mode t))
 #+end_src
+
+Enabling =global-barezettel-mode= toggles the =barezettel-mode= only for the buffers that are detected as Denote notes.
