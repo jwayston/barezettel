@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.2.4
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,11 @@
 
 (defcustom barezettel-use-brackets-around-signature t
   "Non-nil means signatures are formatted with brackets around them."
+  :type 'boolean
+  :group 'barezettel)
+
+(defcustom barezettel-show-targets-in-denote-dired nil
+  "Non-nil means open the ID action target list in a `denote-dired' buffer."
   :type 'boolean
   :group 'barezettel)
 
@@ -308,11 +313,40 @@ includes every note that contains the ID anywhere in the note."
                    #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
 
 ;;;;; Link as search
-(defun barezettel-denote-show-targets-at-point (arg)
-  "Show completing list of all the notes containing the ID at point.
+(defun barezettel--show-targets-in-denote-dired (files)
+  "Show FILES in a `denote-dired' buffer."
+  (let ((choices (mapcar #'file-relative-name files))
+        (denote-sort-title-comparison-function (lambda (_a _b) nil))
+        (dired-hide-details-mode t)
+        (display-buffer-overriding-action
+         '(display-buffer-use-some-window (inhibit-same-window . t))))
+    (denote-sort-dired "" 'title nil nil choices)))
 
-With universal argument ARG, open the selected note in another
-window.  The ID at point is the default one."
+(defun barezettel--show-targets-in-completing-read (files)
+  "Show FILES in a `completing-read'."
+  (let* ((choices (mapcar (lambda (f)
+                            (cons (file-relative-name f (car (denote-directories))) f))
+                          files))
+         (default-choice (car (car choices)))
+         (selected (completing-read "Open the note: " choices nil t nil nil default-choice)))
+    (when-let* ((path (cdr (assoc selected choices))))
+      (if (equal arg '(4))
+          (find-file-other-window path)
+        (find-file path)))))
+
+(defun barezettel-denote-show-targets-at-point (arg)
+  "Show notes containing Denote ID at point.
+
+Prompt for a target using `completing-read'.  The ID at point is the
+default target.
+
+When ARG is a single prefix argument, open the selected in another
+window.
+
+When ARG is a double prefix argument, display the targets in a separate
+`denote-dired' buffer.
+
+Also respect the variable `barezettel-show-targets-in-denote-dired'."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
@@ -320,20 +354,21 @@ window.  The ID at point is the default one."
                 (match-string-no-properties 0)))))
     (if (not id)
         (message "No ID recognized at point")
+
       (let ((current-file (denote-get-path-by-id id)))
         (if (not current-file)
             (message "Couldn't find Denote file for ID: %s" id)
           (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
-                 (all-files (delete-dups (cons current-file backlinks)))
-                 (choices (mapcar (lambda (f)
-                                    (cons (file-relative-name f (car (denote-directories))) f))
-                                  all-files))
-                 (default-choice (car (car choices)))
-                 (selected (completing-read "Open the note: " choices nil t nil nil default-choice)))
-            (when-let* ((path (cdr (assoc selected choices))))
-              (if (equal arg '(4))
-                  (find-file-other-window path)
-                (find-file path)))))))))
+                 (all-files (delete-dups (cons current-file backlinks))))
+            (cond
+             ;; C-u C-u or user setting: open targets in a separate
+             ;; denote-dired buffer
+             ((or barezettel-show-targets-in-denote-dired
+                  (equal arg '(16)))
+              (barezettel--show-targets-in-denote-dired all-files))
+
+             ;; Otherwise use completing-read
+             (t (barezettel--show-targets-in-completing-read all-files)))))))))
 
 
 ;;;; Font lock rules for bare Denote IDs

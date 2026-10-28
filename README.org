@@ -14,9 +14,10 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 
 - Jump between links in the buffer
 - Open link at point following "link as search" idea
-- Expand ID with its corresponding title at point
-- Insert link also in form of a TOC line
-- Extract region to a new note and replace the original region with the new note's ID
+  - Defaults to completing-read prompt. With a user setting, open the targets list in a separate denote-dired buffer
+- Expand ID at point with its corresponding title
+- Insert a link also in form of a TOC line
+- Extract a region to a new note and replace the original region with the new note's ID
 - Visual hanging indents which extend the =visual-wrap-prefix-mode=: text following two spaces in the beginning of a line is treated as a prefix – hanging indents are constructed accordingly. This allows treating IDs as list markers
 - Aforementioned hanging indents support for =M-q= (=fill-paragraph=) and =auto-fill-mode=
 
@@ -24,8 +25,9 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 
 #+begin_src elisp
   (use-package barezettel
-    :load-path "path/you/downloaded/this"
-    :ensure nil
+    :ensure t
+    :vc (:url "https://github.com/jwayston/barezettel"
+         :rev :newest)
     :bind (("C-c n x" . #'barezettel-denote-append-title-at-point)
            ("C-c n X" . #'barezettel-denote-extract-region-and-link)
            ("C-c n l" . #'barezettel-denote-link)
@@ -37,6 +39,7 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
     :custom
     (barezettel-use-brackets-around-signature t)
     (barezettel-visual-hanging-indents t)
+    (barezettel-show-targets-in-denote-dired t)
     :config
     (global-barezettel-mode t))
 #+end_src
