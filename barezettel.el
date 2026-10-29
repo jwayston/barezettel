@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.4.0
+;; Version: 0.4.1
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -330,8 +330,10 @@ includes every note that contains the ID anywhere in the note."
          '(display-buffer-use-some-window (inhibit-same-window . t))))
     (denote-sort-dired "" 'title nil nil choices)))
 
-(defun barezettel--show-targets-in-completing-read (files)
-  "Show FILES in a `completing-read'."
+(defun barezettel--show-targets-in-completing-read (files arg)
+  "Show FILES in a `completing-read'.
+When ARG is single prefix argument, open the selected note in another
+window."
   (let* ((choices (mapcar (lambda (f)
                             (cons (file-relative-name f (car (denote-directories))) f))
                           files))
@@ -348,7 +350,7 @@ includes every note that contains the ID anywhere in the note."
 Prompt for a target using `completing-read'.  The ID at point is the
 default target.
 
-When ARG is a single prefix argument, open the selected in another
+When ARG is a single prefix argument, open the selected note in another
 window.
 
 When ARG is a double prefix argument, display the targets in a separate
@@ -376,7 +378,7 @@ Also respect the variable `barezettel-show-targets-in-denote-dired'."
               (barezettel--show-targets-in-denote-dired all-files))
 
              ;; Otherwise use completing-read
-             (t (barezettel--show-targets-in-completing-read all-files)))))))))
+             (t (barezettel--show-targets-in-completing-read all-files arg)))))))))
 
 
 ;;;; Font lock rules for bare Denote IDs
