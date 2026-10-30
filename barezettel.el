@@ -38,6 +38,7 @@
 (require 'denote)
 
 ;;;; Customizations
+
 (defgroup barezettel nil
   "Minimalistic Zettelkasten minor mode for Denote."
   :prefix "barezettel--"
@@ -77,12 +78,13 @@
 
 
 ;;;; TOC
+
 (defun barezettel--line-to-toc-fill-dots (fill-count)
   "Fill FILL-COUNT dots before the last word of the line."
   (end-of-line) (backward-word) (insert-char ?. fill-count) (insert " "))
 
 (defun barezettel--line-to-toc (threshold indent)
-  "Generate a nice TOC line with INDENT no longer than THRESHOLD."
+  "Generate a nice TOC line no longer than THRESHOLD with INDENT."
   (interactive (list (read-number "Threshold: " (current-fill-column)) (read-number "Indent: " 0)))
   (forward-line 0)
   (insert-char ?\s indent)
@@ -127,7 +129,7 @@
         (goto-char end-marker)))))
 
 (defun barezettel--lines-to-toc (threshold indent)
-  "Multiline paragraph to lines of TOC-entries of INDENT no wider than THRESHOLD."
+  "Paragraph to lines of TOC-entries of INDENT no wider than THRESHOLD."
   (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
   (let ((pbeg (save-excursion (backward-paragraph) (forward-line 1) (point)))
         (pend (save-excursion (forward-paragraph) (point))))
@@ -139,18 +141,22 @@
         (forward-line 1)))))
 
 (defun barezettel-denote-link-toc (arg)
-  "Insert denote link as a TOC entry, ARG meaning unversal argument."
+  "Insert denote link as a TOC entry.
+
+Whan ARG is a single prefix argument don't prompt for threshold or
+indent but use defaults (threshold: `fill-column', indent: 0)."
   (interactive "P")
   (atomic-change-group
     (let ((defaults (equal arg '(4)))
           (current-prefix-arg '(4)))
       (call-interactively 'barezettel-denote-link)
       (if defaults
-          (barezettel--line-to-toc 80 0)
+          (barezettel--line-to-toc fill-column 0)
         (call-interactively 'barezettel--line-to-toc)))))
 
 
-;;;; Hanging indent for bare Denote id's
+;;;; Hanging indent for bare Denote IDs
+
 (defvar-local barezettel--original-visual-line-mode nil
   "Original `visual-line-mode' state.")
 
@@ -158,8 +164,11 @@
   "Original `visual-wrap-prefix-mode' state.")
 
 (defun barezettel--fill-context-prefix-override (orig-fun from to &rest args)
-  "Calculates text until two spaces and forces it as a visual prefix.
-If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
+  "Calculate text until two spaces and force it as a visual prefix.
+If no such text is found, call ORIG-FUN with args FROM, TO, ARGS.
+
+This function is meant to be used as an advice for
+`fill-context-prefix'."
   (save-excursion
     (goto-char from)
     (if (looking-at "^\\([^\n]+?  \\)")
@@ -170,8 +179,8 @@ If no such text is found, call ORIG-FUN with args FROM, TO, ARGS."
   "Toggle visual hanging indents based on ENABLE.
 
 Any non-nil value for ENABLE enables functionality, nil purges the
-setup.  However, enabling requires the variable
-`barezettel-visual-hanging-indents' to be non-nil.
+setup.  However, the variable `barezettel-visual-hanging-indents'
+overrides behavior.
 
 This feature is based on `visual-line-mode' and
 `visual-wrap-prefix-mode' which are turned on when enabled."
@@ -192,9 +201,10 @@ This feature is based on `visual-line-mode' and
       (visual-line-mode barezettel--original-visual-line-mode)
       (visual-wrap-prefix-mode barezettel--original-visual-wrap-prefix-mode))))
 
-;;;; Interactive functions
+;;;; General interactive functions
+
 (defun barezettel--format-signature (signature)
-  "Format SIGNATURE per `barezettel-use-brackets-around-signature'.
+  "Format SIGNATURE as per `barezettel-use-brackets-around-signature'.
 
 If SIGNATURE was nil or user answered no, return nil."
   (if (and signature (y-or-n-p "Include signature?"))
@@ -204,7 +214,7 @@ If SIGNATURE was nil or user answered no, return nil."
     nil))
 
 (defun barezettel-forward-id ()
-  "Jump to a next ID."
+  "Jump to beginning of a next ID."
   (interactive)
   (let (match)
     (save-excursion
@@ -214,7 +224,7 @@ If SIGNATURE was nil or user answered no, return nil."
       (goto-char (prop-match-beginning match)))))
 
 (defun barezettel-backward-id ()
-  "Jump to a previous ID."
+  "Jump to beginning of a previous ID."
   (interactive)
   (let (match)
     (save-excursion
@@ -224,22 +234,25 @@ If SIGNATURE was nil or user answered no, return nil."
     (if (not match) (message "No more IDs before")
       (goto-char (prop-match-beginning match)))))
 
-
 (defun barezettel-denote-org-link-dismantle ()
-  "Dismantle Org Denote link to: \"DENOTEID Signature  Description\".
-The signature part is optional and will be skipped if not found."
+  "Dismantle Org Denote-link to Barezettel default interpretation:
+DENOTEID Signature  Description
+
+The signature part is optional and will be omitted if not found."
   (interactive)
   (if (org-in-regexp "\\[\\[denote:\\([^]]+\\)\\]\\[\\(?:\\([^ ]+\\)[ ]\\{2\\}\\)?\\([^]]+\\)\\]\\]")
       (let ((signature (match-string 2)))
         (replace-match (format "%s %s%s"
                                (match-string 1)
                                (barezettel--format-signature signature)
-                               (match-string 3)) t t))
-    (user-error "Cursor must be over an Org Denote link")))
+                               (match-string 3))
+                       t t))
+    (user-error "Cursor must be over an Org Denote-link")))
 
 (defun barezettel-denote-append-title-at-point (arg)
   "Append a title after the bare Denote ID.
-With universal argument ARG, prepend the title before the ID."
+
+When ARG is a single prefix argument, prepend the title before the ID."
   (interactive "P")
   (let* ((bounds (bounds-of-thing-at-point 'word))
          (id (buffer-substring-no-properties (car bounds) (cdr bounds)))
@@ -258,6 +271,7 @@ With universal argument ARG, prepend the title before the ID."
           (insert (if sign (string-join (list " " sign "  ")) "  ")
                   title))))))
 
+;; TODO: Make this mode-agnostic and accept Markdown & txt links too
 (defun barezettel-denote-link ()
   "Barezettel replacement for `denote-link'."
   (interactive)
@@ -271,7 +285,10 @@ With universal argument ARG, prepend the title before the ID."
     (call-interactively #'barezettel-denote-append-title-at-point)))
 
 (defun barezettel-denote-extract-region-and-link ()
-  "Extract the region to a new note and leave a link to the new note."
+  "Extract region to new note and link to it.
+
+Extract the region, create a new note of it and replace the region with
+a link to the new note."
   (interactive)
   (unless (use-region-p)
     (user-error "No active region"))
@@ -295,7 +312,9 @@ With universal argument ARG, prepend the title before the ID."
       (set-marker end nil))))
 
 (defun barezettel-denote-random-note ()
-  "Open a random Denote note file."
+  "Open a random Denote note file.
+
+The random note is picked among of those in `denote-directory'."
   (interactive)
   (when-let* ((files (denote-directory-files nil t t nil t))
               (n (length files))
@@ -303,17 +322,22 @@ With universal argument ARG, prepend the title before the ID."
     (find-file pick)))
 
 ;;;; Denote core functionality modifications and additions
-;;;;; Allow bare Denote IDs to be registered as backlinks
+;;;;; Register bare Denote IDs as backlinks
+
 (defun barezettel--denote-retrieve-xref-alist-for-backlinks (_orig-fn identifier)
   "Include raw occurrences of Denote ID IDENTIFIER in Denote backlinks.
-ORIG-FN is the original backlink retrieval function."
+
+This function is meant to be used as an advice for
+`denote-retrieve-xref-alist-for-backlinks'."
+
   (denote-retrieve-xref-alist identifier))
 
 (defun barezettel--setup-denote-backlinks (enable)
   "Toggle include Denote bare IDs in backlinks based on ENABLE.
 
-Changes `denote-retrieve-xref-alist-for-backlinks' behavior so that it
-includes every note that contains the ID anywhere in the note."
+Change the behavior of `denote-retrieve-xref-alist-for-backlinks' to
+include every note that contains the bare Denote-ID anywhere in its
+contents."
   (if enable
       (advice-add 'denote-retrieve-xref-alist-for-backlinks
                   :around #'barezettel--denote-retrieve-xref-alist-for-backlinks)
@@ -321,8 +345,9 @@ includes every note that contains the ID anywhere in the note."
                    #'barezettel--denote-retrieve-xref-alist-for-backlinks)))
 
 ;;;;; Link as search
+
 (defun barezettel--show-targets-in-denote-dired (files)
-  "Show FILES in a `denote-dired' buffer."
+  "Show FILES in `denote-dired' buffer."
   (let ((choices (mapcar #'file-relative-name files))
         (denote-sort-title-comparison-function (lambda (_a _b) nil))
         (dired-hide-details-mode t)
@@ -331,8 +356,9 @@ includes every note that contains the ID anywhere in the note."
     (denote-sort-dired "" 'title nil nil choices)))
 
 (defun barezettel--show-targets-in-completing-read (files arg)
-  "Show FILES in a `completing-read'.
-When ARG is single prefix argument, open the selected note in another
+  "Prompt for one of the FILES using `completing-read'.
+
+When ARG is a single prefix argument, open the selected note in another
 window."
   (let* ((choices (mapcar (lambda (f)
                             (cons (file-relative-name f (car (denote-directories))) f))
@@ -356,7 +382,8 @@ window.
 When ARG is a double prefix argument, display the targets in a separate
 `denote-dired' buffer.
 
-Also respect the variable `barezettel-show-targets-in-denote-dired'."
+The variable `barezettel-show-targets-in-denote-dired' overrides default
+behavior."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
@@ -371,7 +398,7 @@ Also respect the variable `barezettel-show-targets-in-denote-dired'."
           (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
                  (all-files (delete-dups (cons current-file backlinks))))
             (cond
-             ;; C-u C-u or user setting: open targets in a separate
+             ;; C-u C-u or user setting: show the targets in a separate
              ;; denote-dired buffer
              ((or barezettel-show-targets-in-denote-dired
                   (equal arg '(16)))
@@ -382,6 +409,7 @@ Also respect the variable `barezettel-show-targets-in-denote-dired'."
 
 
 ;;;; Font lock rules for bare Denote IDs
+
 (defvar-keymap barezettel-denote-id-keymap
   :doc "Keymap for barezettel ID buttons.")
 
@@ -394,7 +422,7 @@ Also respect the variable `barezettel-show-targets-in-denote-dired'."
   "Keywords for `barezettel-mode' font-lock.")
 
 (defun barezettel--denote-id-help-echo (_window _object position)
-  "Return Denote filename for the Denote ID at POSITION."
+  "Return note details for the Denote ID at POSITION."
   (save-excursion
     (goto-char position)
     (skip-chars-backward "0-9T")
@@ -405,7 +433,7 @@ Also respect the variable `barezettel-show-targets-in-denote-dired'."
                   (or (denote-retrieve-filename-signature filename) "")
                   (or (denote-retrieve-filename-title filename) "")
                   (or (denote-extract-keywords-from-path filename) ""))
-        "ID not detected in any Denote filename"))))
+        "ID not found in any Denote filename"))))
 
 (defun barezettel--setup-font-lock (enable)
   "Enable or disable `barezettel-mode' font-lock rules based on ENABLE.
@@ -421,39 +449,40 @@ the setup."
     (font-lock-remove-keywords nil barezettel--font-lock-keywords))
   (font-lock-flush))
 
-;;;; Fill paragraph support for lines starting with Denote ID.
+;;;; Fill paragraph support for lines starting with a Denote ID.
+
 (defvar-keymap barezettel-mode--emulation-map
   :doc "Emulation keymap for `barezettel-mode'.
-Only purpose for this is to remap a key used for `fill-paragraph' to
+The only purpose for this is to remap a key used for `fill-paragraph' to
 `barezettel-fill-paragraph' when the `barezettel-mode' is active."
   "<remap> <fill-paragraph>" #'barezettel-fill-paragraph)
 
 (defvar-local barezettel--original-fill-paragraph-function nil
-  "The original `fill-paragraph-function' before minor mode was enabled.")
+  "Original `fill-paragraph-function' state.")
 
 (defvar-local barezettel--original-paragraph-start nil
-  "The original variable `paragraph-start' before minor mode was enabled.")
+  "Original variable `paragraph-start' state.")
 
 (defvar-local barezettel--original-normal-auto-fill-function nil
-  "The original variable `normal-auto-fill-function' before minor mode was enabled.")
+  "Original variable `normal-auto-fill-function'.")
 
 (defun barezettel-fill-paragraph (&optional justify auto-fill)
   "Fill-paragraph that handles Denote ID lines too.
 
-Prefix arg JUSTIFY non-nil means justify as well.  AUTO-FILL non-nil
-means that this function can be used along with `auto-fill-mode'.
+Prefix arg JUSTIFY non-nil tells to justify.
 
-If the current line starts with a Denote ID followed by two spaces, fill
-only the text section after the spaces while preserving the ID all the
-way until spaces as an indentation for subsequent lines.  Adjacent lines
-starting with with another Denote ID are treated as separate paragraphs
-and are not merged.
+AUTO-FILL non-nil tells that this function is purposely called within
+`auto-fill-mode' and sets fallback to `normal-auto-fill-function' that
+was set before `barezettel-mode' was enabled.
+
+If the current line starts with
+`barezettel-denote-paragraph-start-regexp', fill only text after the
+regexp while preserving the regexp as an indentation for any subsequent
+lines.  Consecutive lines starting with another regexp are treated
+as separate paragraphs and are not merged.
 
 Otherwise fall back to the major mode version or standard
-`fill-paragraph'
-
-When AUTO-FILL is non-nil fallback is `normal-auto-fill-function' that
-was set before the minor mode was enabled."
+`fill-paragraph'."
   (interactive "P")
   (let ((cursor-orig (point)))
     (save-excursion
@@ -498,12 +527,12 @@ was set before the minor mode was enabled."
     (save-excursion (barezettel-fill-paragraph nil t))))
 
 (defun barezettel--setup-fill-paragraph (enable)
-  "Setup or purge fill paragraph behavior based on ENABLE.
+  "Enable or disable fill paragraph behavior based on ENABLE.
 
 Any non-nil value for ENABLE enables behavior modifications, nil purges
 the setup.
 
-The setup affects both `paragraph-fill' and `auto-fill-mode'."
+The setup affects both `fill-paragraph' and `auto-fill-mode'."
 
   (if enable
       (progn
@@ -528,6 +557,7 @@ The setup affects both `paragraph-fill' and `auto-fill-mode'."
     (setq-local barezettel--original-paragraph-start nil)))
 
 ;;;; Minor mode setup
+
 (defvar barezettel--emulation-alist
   `((barezettel-mode . ,barezettel-mode--emulation-map)))
 
