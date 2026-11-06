@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.4.1
+;; Version: 0.4.2
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -85,7 +85,8 @@
 
 (defun barezettel--line-to-toc (threshold indent)
   "Generate a nice TOC line no longer than THRESHOLD with INDENT."
-  (interactive (list (read-number "Threshold: " (current-fill-column)) (read-number "Indent: " 0)))
+  (interactive (list (read-number "Threshold: " (current-fill-column))
+                     (read-number "Indent: " 0)))
   (forward-line 0)
   (insert-char ?\s indent)
 
@@ -119,7 +120,7 @@
             (let ((rbeg (line-beginning-position)))
               ;; Rewrap rest of the text with hanging indent
               (fill-region rbeg end-marker)
-              (indent-rigidly rbeg end-marker 2)
+              (indent-rigidly rbeg end-marker (+ indent 2))
               (goto-char end-marker) (insert " " lword))
 
             ;; Place the dots in the last line
