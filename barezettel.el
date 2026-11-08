@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.4.2
+;; Version: 0.5.0
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -315,12 +315,32 @@ a link to the new note."
 (defun barezettel-denote-random-note ()
   "Open a random Denote note file.
 
-The random note is picked among of those in `denote-directory'."
+The random note is picked from from the directory defined in the
+variable `denote-directory'."
   (interactive)
   (when-let* ((files (denote-directory-files nil t t nil t))
               (n (length files))
               (pick (nth (random n) files)))
     (find-file pick)))
+
+(defun barezettel-denote-sequence-peek-parent ()
+  "Show title of parent note in echo area.
+
+Requires `denote-sequence' package."
+  (interactive)
+  (unless (fboundp 'denote-sequence--infer-parent)
+    (user-error "denote-sequence package is not loaded or doesn't have
+`denote-sequence--infer-parent'"))
+
+  (if (not (and buffer-file-name
+                (denote-file-is-note-p (buffer-file-name))))
+      (message "Not a denote file")
+    (if-let* ((sign (denote-retrieve-filename-signature buffer-file-name))
+              (psign (denote-sequence--infer-parent sign))
+              (pfile (car (denote-directory-files (concat "==" psign) t)))
+              (title (denote-retrieve-filename-title pfile)))
+        (message (format "Parent: %s" title))
+      (message "Couldn't infer parent note"))))
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Register bare Denote IDs as backlinks
