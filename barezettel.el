@@ -272,7 +272,6 @@ When ARG is a single prefix argument, prepend the title before the ID."
           (insert (if sign (string-join (list " " sign "  ")) "  ")
                   title))))))
 
-;; TODO: Make this mode-agnostic and accept Markdown & txt links too
 (defun barezettel-denote-link ()
   "Barezettel replacement for `denote-link'."
   (interactive)
