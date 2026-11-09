@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.5.0
+;; Version: 0.5.1
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -64,7 +64,7 @@
   :type 'string
   :group 'barezettel)
 
-(defcustom barezettel-denote-paragraph-start-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}.*?  "
+(defcustom barezettel-denote-paragraph-start-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}[^.\n]*?  "
   "Regexp for paragraphs starting with Denote IDs."
   :type 'string
   :group 'barezettel)
