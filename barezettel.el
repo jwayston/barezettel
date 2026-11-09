@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.5.1
+;; Version: 0.5.2
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -322,23 +322,24 @@ variable `denote-directory'."
               (pick (nth (random n) files)))
     (find-file pick)))
 
+(declare-function denote-sequence--infer-parent "denote-sequence")
 (defun barezettel-denote-sequence-peek-parent ()
   "Show title of parent note in echo area.
 
 Requires `denote-sequence' package."
   (interactive)
-  (unless (fboundp 'denote-sequence--infer-parent)
-    (user-error "denote-sequence package is not loaded or doesn't have
-`denote-sequence--infer-parent'"))
+  (unless (and (require 'denote-sequence nil t)
+               (fboundp 'denote-sequence--infer-parent))
+    (user-error "This function requires `denote-sequence' package and `denote-sequence--infer-parent'"))
 
   (if (not (and buffer-file-name
-                (denote-file-is-note-p (buffer-file-name))))
+                (denote-file-has-denoted-filename-p (buffer-file-name))))
       (message "Not a denote file")
     (if-let* ((sign (denote-retrieve-filename-signature buffer-file-name))
               (psign (denote-sequence--infer-parent sign))
               (pfile (car (denote-directory-files (concat "==" psign) t)))
               (title (denote-retrieve-filename-title pfile)))
-        (message (format "Parent: %s" title))
+        (message (format "%s %s" psign title))
       (message "Couldn't infer parent note"))))
 
 ;;;; Denote core functionality modifications and additions
@@ -604,7 +605,7 @@ outside Emacs more pleasant."
   "Enable `barezettel-mode' if the file is recognized as a Denote note."
   (when (and (buffer-file-name)
              (fboundp 'denote-file-is-note-p)
-             (denote-file-is-note-p (buffer-file-name)))
+             (denote-file-has-denoted-filename-p (buffer-file-name)))
     (barezettel-mode 1)))
 
 ;;;###autoload
