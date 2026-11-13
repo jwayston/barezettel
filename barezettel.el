@@ -414,20 +414,20 @@ behavior."
     (if (not id)
         (message "No ID recognized at point")
 
-      (let ((current-file (denote-get-path-by-id id)))
-        (if (not current-file)
+      (let ((target-file (denote-get-path-by-id id)))
+        (if (not target-file)
             (message "Couldn't find Denote file for ID: %s" id)
-          (let* ((backlinks (ignore-errors (denote-get-backlinks current-file)))
-                 (all-files (delete-dups (cons current-file backlinks))))
+          (let* ((backlinks (ignore-errors (denote-get-backlinks target-file)))
+                 (targets (delete-dups (cons target-file backlinks))))
             (cond
              ;; C-u C-u or user setting: show the targets in a separate
              ;; denote-dired buffer
              ((or barezettel-show-targets-in-denote-dired
                   (equal arg '(16)))
-              (barezettel--show-targets-in-denote-dired all-files))
+              (barezettel--show-targets-in-denote-dired targets))
 
              ;; Otherwise use completing-read
-             (t (barezettel--show-targets-in-completing-read all-files arg)))))))))
+             (t (barezettel--show-targets-in-completing-read targets arg)))))))))
 
 
 ;;;; Font lock rules for bare Denote IDs
