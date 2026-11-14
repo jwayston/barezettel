@@ -673,6 +673,7 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
 (transient-define-prefix barezettel-menu ()
   "Main dispatch menu for `barezettel-mode'."
   ["Recent notes"
+   :class transient-column
    :setup-children barezettel--transient-denote-recent-files]
   [["Barezettel"
     ("l" "Link" barezettel-denote-link
