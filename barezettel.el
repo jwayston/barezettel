@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.5.3
+;; Version: 0.6.0
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -34,6 +34,8 @@
 
 ;;; Code:
 
+(require 'transient)
+(require 'filenotify)
 (require 'org)
 (require 'denote)
 
@@ -69,6 +71,22 @@
   :type 'string
   :group 'barezettel)
 
+(defcustom barezettel-denote-find-note-function
+  (cond
+    ((fboundp 'consult-notes) #'consult-notes)
+    ((fboundp 'consult-denote-find) #'consult-denote-find)
+    (t #'denote-open-or-create))
+  "Interactive command used by `barezettel--find-note-dwim'."
+  :type 'function)
+
+(defcustom barezettel-denote-grep-function
+  (cond
+   ((fboundp 'consult-notes-search-in-all-notes) #'consult-notes-search-in-all-notes)
+   ((fboundp 'consult-denote-grep) #'consult-denote-grep)
+   (t #'denote-grep))
+  "Interactive command used by `barezettel--grep-notes-dwim'."
+  :type 'function)
+
 (defface barezettel--denote-id-face '((t (:inherit shadow)))
   "Face for bare Denote IDs."
   :group 'barezettel)
@@ -76,6 +94,13 @@
 (defvar-keymap barezettel-mode-map
   :doc "Keymap for `barezettel-mode'.")
 
+;;;; General
+
+(defun barezettel--buffer-denote-p ()
+  "Return non-nil if current buffer is recognized as Denote note."
+  (and (buffer-file-name)
+       (fboundp 'denote-file-is-note-p)
+       (denote-file-has-denoted-filename-p (buffer-file-name))))
 
 ;;;; TOC
 
@@ -322,7 +347,7 @@ variable `denote-directory'."
               (pick (nth (random n) files)))
     (find-file pick)))
 
-(declare-function denote-sequence--infer-parent "denote-sequence")
+(declare-function denote-sequence--infer-parent "denote-sequence" (sequence))
 (defun barezettel-denote-sequence-peek-parent ()
   "Show title of parent note in echo area.
 
@@ -342,6 +367,19 @@ Requires `denote-sequence' package."
               (title (denote-retrieve-filename-title pfile)))
         (message (format "%s %s" psign title))
       (message "Couldn't infer parent note"))))
+
+(declare-function denote-sequence-view-hierarchy "denote-sequence" (sequence))
+(defun barezettel-denote-sequence-view-root-hierarchy ()
+  "Denote-sequence-view for root note in sequence and all its descendants."
+  (interactive)
+  (unless (and (require 'denote-sequence nil t)
+               (fboundp 'denote-sequence-view-hierarchy))
+    (user-error "This function required `denote-sequence' package and `denote-sequence-view-hierarchy'"))
+  (let* ((cur (denote-file-has-signature-p (buffer-file-name)))
+         (root (and cur (string-match "^\\([0-9]+\\)" cur) (match-string 1 cur))))
+    (if root
+        (denote-sequence-view-hierarchy root)
+      (user-error "No root found for the sequence"))))
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Register bare Denote IDs as backlinks
@@ -578,6 +616,102 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
     ;; Cleanup
     (setq-local barezettel--original-paragraph-start nil)))
 
+;;;; Transient menu
+(defvar barezettel--denote-recent-files-cache nil
+  "Cached list of recently modified Denote files.")
+
+(defvar barezettel--denote-directory-watcher nil
+  "File notification descriptor for directory variable `denote-directory'.")
+
+(defun barezettel--invalidate-denote-recent-files-cache ()
+  "Clear the cached recent Denote files list."
+  (setq barezettel--denote-recent-files-cache nil))
+
+;; TODO: Support for multiple directories and `denote-excluded-files-regexp'
+(defun barezettel--ensure-watcher ()
+  "Start watching directory in variable `denote-directory'."
+  (unless (and barezettel--denote-directory-watcher
+               (file-notify-valid-p barezettel--denote-directory-watcher))
+    (setq barezettel--denote-directory-watcher
+          (file-notify-add-watch (car (denote-directories))
+                                 '(change attribute-change)
+                                 #'barezettel--invalidate-denote-recent-files-cache))))
+
+(defun barezettel--denote-recent-files (n)
+  "Return sequence of recently modified Denote files of length N."
+  (barezettel--ensure-watcher)
+  (unless barezettel--denote-recent-files-cache
+    (let* ((attrs (directory-files-and-attributes (car (denote-directories)) t "^[^.]" t))
+           (sorted (sort attrs (lambda (a b)
+                                 (time-less-p (file-attribute-modification-time (cdr b))
+                                              (file-attribute-modification-time (cdr a)))))))
+      (setq barezettel--denote-recent-files-cache (take n (mapcar #'car sorted)))))
+  barezettel--denote-recent-files-cache)
+
+(defun barezettel--transient-denote-recent-files (_)
+  "Return parsed transient suffixes for recently modified Denote files."
+  (let ((i 0))
+    (transient-parse-suffixes
+     'barezettel-menu
+     (mapcar (lambda (file)
+               (list (number-to-string (cl-incf i))
+                     (file-name-base file)
+                     (lambda () (interactive) (find-file file))))
+             (barezettel--denote-recent-files 5)))))
+
+(defun barezettel--find-note-dwim ()
+  "Run `barezettel-denote-find-note-function' interactively."
+  (interactive)
+  (call-interactively barezettel-denote-find-note-function))
+
+(defun barezettel--grep-notes-dwim ()
+  "Run `barezettel-denote-grep-function' interactively."
+  (interactive)
+  (call-interactively barezettel-denote-grep-function))
+
+;;;###autoload
+(transient-define-prefix barezettel-menu ()
+  "Main dispatch menu for `barezettel-mode'."
+  ["Recent notes"
+   :setup-children barezettel--transient-denote-recent-files]
+  [["Barezettel"
+    ("l" "Link" barezettel-denote-link
+     :inapt-if-non-nil buffer-read-only)
+    ("p" "Peek parent" barezettel-denote-sequence-peek-parent
+     :if (lambda () (and (barezettel--buffer-denote-p) (fboundp 'denote-sequence))))
+    ("r" "Open random note" barezettel-denote-random-note)
+    ("t" "TOC link" barezettel-denote-link-toc
+     :inapt-if-non-nil buffer-read-only)
+    ("x" "Expand ID at point" barezettel-denote-append-title-at-point
+     :inapt-if-non-nil buffer-read-only)
+    ("X" "Extract region" barezettel-denote-extract-region-and-link
+     :inapt-if-non-nil buffer-read-only)]
+   ["Denote"
+    ("b" "Backlinks" denote-backlinks :if barezettel--buffer-denote-p)
+    ("C" "New note" denote)
+    ("d" "Denote dired" denote-dired)
+    ("n" "Find notes" barezettel--find-note-dwim)
+    ("r" "Rename file using frontmatter" denote-rename-file-using-front-matter
+     :if barezettel--buffer-denote-p)
+    ("S" "Rename file signature" denote-rename-file-signature
+     :if barezettel--buffer-denote-p)
+    ("/" "Search contents" barezettel--grep-notes-dwim)]
+   ["Denote Sequence"
+    :if (lambda () (fboundp 'denote-sequence))
+    ("sd" "Dired" denote-sequence-dired)
+    ("sf" "Find" denote-sequence-find :if barezettel--buffer-denote-p)
+    ("sr" "Reparent (reqursively)" denote-sequence-reparent-recursive
+     :if barezettel--buffer-denote-p)
+    ("ss" "View root hierarchy" barezettel-denote-sequence-view-root-hierarchy
+     :if barezettel--buffer-denote-p)]
+   ["Citar Denote"
+    :if (lambda () (featurep 'citar-denote))
+    ("cf" "Find notes by cite" citar-denote-find-citation)
+    ("cn" "Open note" citar-denote-open-note)]
+   ["Mode"
+    ("m" "Toggle minor mode" barezettel-mode)
+    ("q" "Quit" transient-quit-one)]])
+
 ;;;; Minor mode setup
 
 (defvar barezettel--emulation-alist
@@ -604,9 +738,7 @@ outside Emacs more pleasant."
 
 (defun barezettel--enable-if-denote-note ()
   "Enable `barezettel-mode' if the file is recognized as a Denote note."
-  (when (and (buffer-file-name)
-             (fboundp 'denote-file-is-note-p)
-             (denote-file-has-denoted-filename-p (buffer-file-name)))
+  (when (barezettel--buffer-denote-p)
     (barezettel-mode 1)))
 
 ;;;###autoload

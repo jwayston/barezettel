@@ -22,6 +22,9 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
 - Aforementioned hanging indents support for =M-q= (=fill-paragraph=) and =auto-fill-mode=
 - Open a random Denote note
 - Peek a parent note's title (requires =denote-sequence= package)
+- View root hierarchy of note's sequence (requires =denote-sequence= package)
+- Transient menu for quick navigation and note management
+  - Featuring a dynamic list of recently modified notes at the top, followed by context aware sections for other actions
 
 ** Installation
 
@@ -38,6 +41,8 @@ Barezettel makes detected Denote IDs interactive. Just hit =M-RET= on the ID and
            ("C-c n r" . barezettel-denote-random-note)
            ("C-c n >" . barezettel-forward-id)
   	 ("C-c n <" . barezettel-backward-id)
+           ;; Or let the transient menu do the job
+           ("C-c ." . barezettel-menu)
   	 :map barezettel-denote-id-keymap
   	 ("M-<return>" . barezettel-denote-show-targets-at-point))
     :custom
