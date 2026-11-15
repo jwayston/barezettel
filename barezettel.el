@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.1
+;; Version: 0.6.2
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -648,6 +648,18 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
       (setq barezettel--denote-recent-files-cache (take n (mapcar #'car sorted)))))
   barezettel--denote-recent-files-cache)
 
+(defun barezettel--denote-filename-prettify (file)
+  "Prettify Denote filename FILE into a more readable propertized string."
+  (let* ((identifier (denote-retrieve-filename-identifier file))
+         (signature (denote-retrieve-filename-signature file))
+         (title (denote-retrieve-filename-title file))
+         (keywords (denote-retrieve-filename-keywords file))
+         (parts (list (and identifier (propertize identifier 'face 'barezettel--denote-id-face))
+                      (and signature (propertize signature 'face 'denote-faces-signature))
+                      (and title (propertize title 'face 'denote-faces-title))
+                      (and keywords (propertize keywords 'face 'shadow)))))
+    (string-join (delq nil parts) " ")))
+
 (defun barezettel--transient-denote-recent-files (_)
   "Return parsed transient suffixes for recently modified Denote files."
   (let ((i 0))
@@ -655,7 +667,7 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
      'barezettel-menu
      (mapcar (lambda (file)
                (list (number-to-string (cl-incf i))
-                     (file-name-base file)
+                     (barezettel--denote-filename-prettify (file-name-base file))
                      (lambda () (interactive) (find-file file))))
              (barezettel--denote-recent-files 5)))))
 
