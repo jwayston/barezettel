@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.2
+;; Version: 0.6.3
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -502,9 +502,9 @@ Any non-nil value for ENABLE enables behavior modifications, nil purges
 the setup."
   (if enable
       (progn
+        (make-local-variable 'font-lock-extra-managed-props)
         (add-to-list 'font-lock-extra-managed-props 'help-echo)
         (add-to-list 'font-lock-extra-managed-props 'keymap)
-
         (font-lock-add-keywords nil barezettel--font-lock-keywords 'prepend))
     (font-lock-remove-keywords nil barezettel--font-lock-keywords))
   (font-lock-flush))
