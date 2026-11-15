@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.0
+;; Version: 0.6.1
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -623,7 +623,7 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
 (defvar barezettel--denote-directory-watcher nil
   "File notification descriptor for directory variable `denote-directory'.")
 
-(defun barezettel--invalidate-denote-recent-files-cache ()
+(defun barezettel--invalidate-denote-recent-files-cache (_)
   "Clear the cached recent Denote files list."
   (setq barezettel--denote-recent-files-cache nil))
 
@@ -688,7 +688,7 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
     ("X" "Extract region" barezettel-denote-extract-region-and-link
      :inapt-if-non-nil buffer-read-only)]
    ["Denote"
-    ("b" "Backlinks" denote-backlinks :if barezettel--buffer-denote-p)
+    ("b" "Backlinks" denote-find-backlink :if barezettel--buffer-denote-p)
     ("C" "New note" denote)
     ("d" "Denote dired" denote-dired)
     ("n" "Find notes" barezettel--find-note-dwim)
