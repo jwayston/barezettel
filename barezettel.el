@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.3
+;; Version: 0.6.4
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -378,7 +378,8 @@ Requires `denote-sequence' package."
   (let* ((cur (denote-file-has-signature-p (buffer-file-name)))
          (root (and cur (string-match "^\\([0-9]+\\)" cur) (match-string 1 cur))))
     (if root
-        (denote-sequence-view-hierarchy root)
+        (when-let* ((window (denote-sequence-view-hierarchy root)))
+          (select-window window))
       (user-error "No root found for the sequence"))))
 
 ;;;; Denote core functionality modifications and additions
