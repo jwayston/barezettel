@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.5
+;; Version: 0.6.6
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -363,9 +363,8 @@ Requires `denote-sequence' package."
     (if-let* ((sign (denote-retrieve-filename-signature buffer-file-name))
               (psign (denote-sequence--infer-parent sign))
               (pfile (car (denote-directory-files
-                           (concat "==" psign "\\([-_]\\{2\\}\\|\\.\\)") t)))
-              (title (denote-retrieve-filename-title pfile)))
-        (message (format "%s %s" psign title))
+                           (concat "==" psign "\\([-_]\\{2\\}\\|\\.\\)") t))))
+        (message (barezettel--denote-filename-prettify pfile t))
       (message "Couldn't infer parent note"))))
 
 (declare-function denote-sequence-view-hierarchy "denote-sequence" (sequence))
