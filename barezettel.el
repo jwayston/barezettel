@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.4
+;; Version: 0.6.5
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -490,10 +490,7 @@ behavior."
     (when (looking-at barezettel-denote-regexp)
       (if-let* ((path (denote-get-path-by-id (match-string-no-properties 0)))
                 (filename (file-name-nondirectory path)))
-          (format "%s %s %s"
-                  (or (denote-retrieve-filename-signature filename) "")
-                  (or (denote-retrieve-filename-title filename) "")
-                  (or (denote-extract-keywords-from-path filename) ""))
+          (barezettel--denote-filename-prettify filename t)
         "ID not found in any Denote filename"))))
 
 (defun barezettel--setup-font-lock (enable)
@@ -649,13 +646,14 @@ The setup affects both `fill-paragraph' and `auto-fill-mode'."
       (setq barezettel--denote-recent-files-cache (take n (mapcar #'car sorted)))))
   barezettel--denote-recent-files-cache)
 
-(defun barezettel--denote-filename-prettify (file)
-  "Prettify Denote filename FILE into a more readable propertized string."
+(defun barezettel--denote-filename-prettify (file &optional noid)
+  "Prettify Denote filename FILE into a more readable propertized string.
+When optional NOID is non-nil, do not include idenitifer in the result."
   (let* ((identifier (denote-retrieve-filename-identifier file))
          (signature (denote-retrieve-filename-signature file))
          (title (denote-retrieve-filename-title file))
          (keywords (denote-retrieve-filename-keywords file))
-         (parts (list (and identifier (propertize identifier 'face 'barezettel--denote-id-face))
+         (parts (list (and (not noid) identifier (propertize identifier 'face 'barezettel--denote-id-face))
                       (and signature (propertize signature 'face 'denote-faces-signature))
                       (and title (propertize title 'face 'denote-faces-title))
                       (and keywords (propertize keywords 'face 'shadow)))))
