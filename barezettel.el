@@ -1,6 +1,6 @@
 ;;; barezettel.el --- Minimalistic Zettelkasten minor mode for Denote -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2026  Free Software Foundation, Inc.
+;; Copyright (C) 2022-2026  J Wayston
 
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
