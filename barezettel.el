@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.7
+;; Version: 0.6.8
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -61,12 +61,13 @@
   :type 'boolean
   :group 'barezettel)
 
-(defcustom barezettel-denote-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}"
+(defcustom barezettel-denote-id-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}"
   "Regexp for Denote ID."
   :type 'string
   :group 'barezettel)
 
-(defcustom barezettel-denote-paragraph-start-regexp "[0-9]\\{8\\}T[0-9]\\{6\\}[^.\n]*?  "
+(defcustom barezettel-denote-paragraph-start-regexp
+  (concat barezettel-denote-id-regexp "[^.\n]*?  ")
   "Regexp for paragraphs starting with Denote IDs."
   :type 'string
   :group 'barezettel)
@@ -201,14 +202,16 @@ indent but use defaults (threshold: `fill-column', indent: 0)."
   "Original `visual-wrap-prefix-mode' state.")
 
 (defun barezettel--fill-context-prefix-override (orig-fun from to &rest args)
-  "Calculate text until two spaces and force it as a visual prefix.
-If no such text is found, call ORIG-FUN with args FROM, TO, ARGS.
+  "Make text starting with Denote ID a visual prefix.
+There must be two spaces somewhere in the line after the ID marking the
+end of the prefix.  If no such text is found, call ORIG-FUN with args
+FROM, TO, ARGS.
 
 This function is meant to be used as an advice for
 `fill-context-prefix'."
   (save-excursion
     (goto-char from)
-    (if (looking-at "^\\([^\n]+?  \\)")
+    (if (looking-at (concat "^\\(" barezettel-denote-id-regexp ".*?  \\)"))
         (make-string (length (match-string 1)) ?\s)
       (apply orig-fun from to args))))
 
@@ -458,7 +461,7 @@ behavior."
   (interactive "P")
   (let ((id (save-excursion
               (skip-chars-backward "0-9T")
-              (when (looking-at barezettel-denote-regexp)
+              (when (looking-at barezettel-denote-id-regexp)
                 (match-string-no-properties 0)))))
     (if (not id)
         (message "No ID recognized at point")
@@ -485,7 +488,7 @@ behavior."
   :doc "Keymap for barezettel ID buttons.")
 
 (defvar barezettel--font-lock-keywords
-  `((,barezettel-denote-regexp
+  `((,barezettel-denote-id-regexp
      (0 `(face barezettel--denote-id-face
                keymap ,barezettel-denote-id-keymap
                help-echo barezettel--denote-id-help-echo)
@@ -497,7 +500,7 @@ behavior."
   (save-excursion
     (goto-char position)
     (skip-chars-backward "0-9T")
-    (when (looking-at barezettel-denote-regexp)
+    (when (looking-at barezettel-denote-id-regexp)
       (if-let* ((path (denote-get-path-by-id (match-string-no-properties 0)))
                 (filename (file-name-nondirectory path)))
           (barezettel--denote-filename-prettify filename t)
