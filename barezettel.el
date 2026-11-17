@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.6
+;; Version: 0.6.7
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -106,7 +106,10 @@
 
 (defun barezettel--line-to-toc-fill-dots (fill-count)
   "Fill FILL-COUNT dots before the last word of the line."
-  (end-of-line) (backward-word) (insert-char ?. fill-count) (insert " "))
+  (end-of-line)
+  (backward-word)
+  (insert-char ?. fill-count)
+  (insert " "))
 
 (defun barezettel--line-to-toc (threshold indent)
   "Generate a nice TOC line no longer than THRESHOLD with INDENT."
@@ -119,34 +122,42 @@
          (end (line-end-position))
          (llen (string-width (buffer-substring-no-properties beg end))))
 
-    (if (< llen threshold) ; Short line, just place the dots
+    (if (< llen threshold)           ; Short line, just place the dots
         (barezettel--line-to-toc-fill-dots (- threshold 1 llen))
 
       ;; Longer lines
-      (let* ((lword (save-excursion (goto-char end) (current-word)))
-             (lwlen (length lword))
-             (end-marker (copy-marker (- end lwlen)))
-             (fill-column (- threshold lwlen 1)))
+      (let* ((linkword (save-excursion (goto-char end) (current-word)))
+             (linkword-len (length linkword))
+             (end-marker (copy-marker (- end linkword-len)))
+             (fill-column (- threshold linkword-len 1))
+             (fill-prefix nil)
+             (adaptive-fill-mode nil))
 
         (save-excursion
-          ;; Remove the last word (the TOC target)
-          (save-excursion (goto-char end) (delete-region (- (point) lwlen) (point)))
+          ;; Remove the last word (the TOC target/link)
+          (save-excursion
+            (goto-char end)
+            (delete-region (- (point) linkword-len) (point)))
 
-          ;; Wrap the line according to calculated 'fill-column'
-          (fill-region beg end-marker)
+          ;; Wrap the line according to calculated `fill-column'
+          (fill-region beg end-marker 'none t)
 
           (forward-line 1)
           (let ((rbeg (line-beginning-position))
-                (fill-column (- threshold lwlen 3)))
+                (fill-column (- threshold linkword-len 3)))
 
-            ;; Join the remaining lines
-            (let ((fill-column 999999)) (fill-region rbeg end-marker))
+            ;; Join the remaining lines so that they can be filled
+            ;; again with previously calculated new fill-column
+            (let ((fill-column 999999))
+              (fill-region rbeg end-marker))
 
-            (let ((rbeg (line-beginning-position)))
+            (let ((rbeg (line-beginning-position))
+                  (hanging-indent (+ indent 2)))
               ;; Rewrap rest of the text with hanging indent
               (fill-region rbeg end-marker)
-              (indent-rigidly rbeg end-marker (+ indent 2))
-              (goto-char end-marker) (insert " " lword))
+              (indent-rigidly rbeg end-marker hanging-indent)
+              (goto-char end-marker)
+              (insert " " linkword))
 
             ;; Place the dots in the last line
             (let ((dotsn (- threshold 1 (- (line-end-position)
