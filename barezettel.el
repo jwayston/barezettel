@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.8
+;; Version: 0.6.9
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -36,7 +36,6 @@
 
 (require 'transient)
 (require 'filenotify)
-(require 'org)
 (require 'denote)
 
 ;;;; Customizations
@@ -78,7 +77,8 @@
     ((fboundp 'consult-denote-find) #'consult-denote-find)
     (t #'denote-open-or-create))
   "Interactive command used by `barezettel--find-note-dwim'."
-  :type 'function)
+  :type 'function
+  :group 'barezettel)
 
 (defcustom barezettel-denote-grep-function
   (cond
@@ -86,7 +86,13 @@
    ((fboundp 'consult-denote-grep) #'consult-denote-grep)
    (t #'denote-grep))
   "Interactive command used by `barezettel--grep-notes-dwim'."
-  :type 'function)
+  :type 'function
+  :group 'barezettel)
+
+;;;; General variables
+
+(defvar barezettel-denote-id nil
+  "Non-nil text property marking Denote IDs.")
 
 (defface barezettel--denote-id-face '((t (:inherit shadow)))
   "Face for bare Denote IDs."
@@ -95,12 +101,11 @@
 (defvar-keymap barezettel-mode-map
   :doc "Keymap for `barezettel-mode'.")
 
-;;;; General
+;;;; General functions
 
 (defun barezettel--buffer-denote-p ()
   "Return non-nil if current buffer is recognized as Denote note."
   (and (buffer-file-name)
-       (fboundp 'denote-file-is-note-p)
        (denote-file-has-denoted-filename-p (buffer-file-name))))
 
 ;;;; TOC
@@ -167,8 +172,10 @@
         (goto-char end-marker)))))
 
 (defun barezettel--lines-to-toc (threshold indent)
-  "Paragraph to lines of TOC-entries of INDENT no wider than THRESHOLD."
-  (interactive (list (read-number "Threshold: " 80) (read-number "Indent: " 0)))
+  "Paragraph to lines of TOC-entries of INDENT no wider than THRESHOLD.
+Last word of every line is considered as the link/target."
+  (interactive (list (read-number "Threshold: " 80)
+                     (read-number "Indent: " 0)))
   (let ((pbeg (save-excursion (backward-paragraph) (forward-line 1) (point)))
         (pend (save-excursion (forward-paragraph) (point))))
     (save-restriction
@@ -256,23 +263,18 @@ If SIGNATURE was nil or user answered no, return nil."
 (defun barezettel-forward-id ()
   "Jump to beginning of a next ID."
   (interactive)
-  (let (match)
-    (save-excursion
-      (forward-word) (forward-char)
-      (setq match (text-property-search-forward 'face 'barezettel--denote-id-face t)))
-    (if (not match) (message "No more IDs ahead")
-      (goto-char (prop-match-beginning match)))))
+  (if-let* ((match (text-property-search-forward
+                    'barezettel-denote-id t t t)))
+      (goto-char (prop-match-beginning match))
+    (message "No more IDs ahead")))
 
 (defun barezettel-backward-id ()
   "Jump to beginning of a previous ID."
   (interactive)
-  (let (match)
-    (save-excursion
-      (unless (looking-at "^\\|$\\|\\s\\|\\b\\w")
-        (backward-word))
-      (setq match (text-property-search-backward 'face 'barezettel--denote-id-face t)))
-    (if (not match) (message "No more IDs before")
-      (goto-char (prop-match-beginning match)))))
+  (if-let* ((match (text-property-search-backward
+                    'barezettel-denote-id t t t)))
+      (goto-char (prop-match-beginning match))
+    (message "No more IDs before")))
 
 (defun barezettel-denote-org-link-dismantle ()
   "Dismantle Org Denote-link to Barezettel default interpretation:
@@ -280,14 +282,24 @@ DENOTEID Signature  Description
 
 The signature part is optional and will be omitted if not found."
   (interactive)
-  (if (org-in-regexp "\\[\\[denote:\\([^]]+\\)\\]\\[\\(?:\\([^ ]+\\)[ ]\\{2\\}\\)?\\([^]]+\\)\\]\\]")
-      (let ((signature (match-string 2)))
-        (replace-match (format "%s %s%s"
-                               (match-string 1)
-                               (barezettel--format-signature signature)
-                               (match-string 3))
-                       t t))
-    (user-error "Cursor must be over an Org Denote-link")))
+  (let ((regexp "\\[\\[denote:\\([^]]+\\)\\]\\[\\(?:\\([^ ]+\\)[ ]\\{2\\}\\)?\\([^]]+\\)\\]\\]")
+        (pos (point))
+        match)
+    (save-excursion
+      (beginning-of-line)
+      (when (re-search-forward regexp (line-end-position) t)
+        (when (<= (match-beginning 0) pos (match-end 0))
+          (setq match (match-data)))))
+    (when (not match)
+      (user-error "Cursor must be over an Org Denote-link"))
+    (replace-match
+     (format "%s  %s%s"
+             (match-string 1)
+             (if-let* ((signature (match-string 2)))
+                 (concat (barezettel--format-signature signature) " ")
+               "")
+             (match-string 3))
+     t t)))
 
 (defun barezettel-denote-append-title-at-point (arg)
   "Append a title after the bare Denote ID.
@@ -298,12 +310,12 @@ When ARG is a single prefix argument, prepend the title before the ID."
          (id (buffer-substring-no-properties (car bounds) (cdr bounds)))
          (path (denote-get-path-by-id id))
          (file-type (denote-filetype-heuristics path))
-         (title (denote-retrieve-title-or-filename path file-type))
-         (signature (denote-retrieve-filename-signature path)))
+         (title (denote-retrieve-title-or-filename path file-type)))
     (unless title (user-error "Couldn't retrieve title"))
     (save-excursion
       (let ((prepend (equal arg '(4)))
-            (sign (barezettel--format-signature signature)))
+            (sign (barezettel--format-signature
+                   (denote-retrieve-filename-signature path))))
         (goto-char (if prepend (car bounds) (cdr bounds)))
         (if prepend
             (insert (if sign (string-join (list sign "  ")) "")
@@ -317,10 +329,13 @@ When ARG is a single prefix argument, prepend the title before the ID."
   (save-excursion
     (let ((current-prefix-arg '(4)))
       (call-interactively 'denote-link))
-    (if (org-in-regexp "\\[\\[denote:\\(.*?\\)\\].*\\]")
-        (let ((id (match-string 1)))
-          (replace-match (format "%s" id)))
-      (user-error "Link format error"))
+    (let ((regexp "\\[\\[denote:\\(.*?\\)\\].*\\]")
+          (pos (point)))
+      (beginning-of-line)
+      (if-let* ((end (re-search-forward regexp (line-end-position) t))
+                (_ (<= (match-beginning 0) pos end)))
+          (replace-match (format "%s" (match-string 1)))
+        (user-error "`denote-link' didn't return recognizable link")))
     (call-interactively #'barezettel-denote-append-title-at-point)))
 
 (defun barezettel-denote-extract-region-and-link ()
@@ -373,11 +388,11 @@ Requires `denote-sequence' package."
 
   (if (not (and buffer-file-name
                 (denote-file-has-denoted-filename-p (buffer-file-name))))
-      (message "Not a denote file")
+      (message "Current buffer is not a denote file")
     (if-let* ((sign (denote-retrieve-filename-signature buffer-file-name))
               (psign (denote-sequence--infer-parent sign))
-              (pfile (car (denote-directory-files
-                           (concat "==" psign "\\([-_]\\{2\\}\\|\\.\\)") t))))
+              (regexp (concat "==" psign "\\([-_]\\{2\\}\\|\\.\\)"))
+              (pfile (car (denote-directory-files regexp t))))
         (message (barezettel--denote-filename-prettify pfile t))
       (message "Couldn't infer parent note"))))
 
@@ -388,12 +403,12 @@ Requires `denote-sequence' package."
   (unless (and (require 'denote-sequence nil t)
                (fboundp 'denote-sequence-view-hierarchy))
     (user-error "This function required `denote-sequence' package and `denote-sequence-view-hierarchy'"))
-  (let* ((cur (denote-file-has-signature-p (buffer-file-name)))
-         (root (and cur (string-match "^\\([0-9]+\\)" cur) (match-string 1 cur))))
-    (if root
-        (when-let* ((window (denote-sequence-view-hierarchy root)))
-          (select-window window))
-      (user-error "No root found for the sequence"))))
+  (if-let* ((signature (denote-file-has-signature-p (buffer-file-name)))
+            (root (and (string-match "^\\([0-9]+\\)" signature)
+                       (match-string 1 signature)))
+            (window (denote-sequence-view-hierarchy root)))
+      (select-window window)
+    (user-error "No root found for the sequence or sequence not detected")))
 
 ;;;; Denote core functionality modifications and additions
 ;;;;; Register bare Denote IDs as backlinks
@@ -481,7 +496,6 @@ behavior."
              ;; Otherwise use completing-read
              (t (barezettel--show-targets-in-completing-read targets arg)))))))))
 
-
 ;;;; Font lock rules for bare Denote IDs
 
 (defvar-keymap barezettel-denote-id-keymap
@@ -490,6 +504,7 @@ behavior."
 (defvar barezettel--font-lock-keywords
   `((,barezettel-denote-id-regexp
      (0 `(face barezettel--denote-id-face
+               barezettel-denote-id t
                keymap ,barezettel-denote-id-keymap
                help-echo barezettel--denote-id-help-echo)
         t)))
@@ -516,8 +531,12 @@ the setup."
         (make-local-variable 'font-lock-extra-managed-props)
         (add-to-list 'font-lock-extra-managed-props 'help-echo)
         (add-to-list 'font-lock-extra-managed-props 'keymap)
+        (add-to-list 'font-lock-extra-managed-props 'barezettel-denote-id)
         (font-lock-add-keywords nil barezettel--font-lock-keywords 'prepend))
-    (font-lock-remove-keywords nil barezettel--font-lock-keywords))
+    (font-lock-remove-keywords nil barezettel--font-lock-keywords)
+    (with-silent-modifications
+      (remove-text-properties (point-min) (point-max)
+                              '(barezettel-denote-id nil))))
   (font-lock-flush))
 
 ;;;; Fill paragraph support for lines starting with a Denote ID.
