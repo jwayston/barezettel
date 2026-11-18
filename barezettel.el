@@ -5,7 +5,7 @@
 ;; Author: J Wayston
 ;; Maintainer: J Wayston
 ;; URL: https://github.com/jwayston/barezettel
-;; Version: 0.6.9
+;; Version: 0.6.10
 ;; Package-Requires: ((emacs "31.1") (denote "4.2.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -735,7 +735,7 @@ When optional NOID is non-nil, do not include idenitifer in the result."
     ("C" "New note" denote)
     ("d" "Denote dired" denote-dired)
     ("n" "Find notes" barezettel--find-note-dwim)
-    ("r" "Rename file using frontmatter" denote-rename-file-using-front-matter
+    ("R" "Rename file using frontmatter" denote-rename-file-using-front-matter
      :if barezettel--buffer-denote-p)
     ("S" "Rename file signature" denote-rename-file-signature
      :if barezettel--buffer-denote-p)
